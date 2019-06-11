@@ -28,7 +28,7 @@ public class Parcheggio {
 	public Ticket ritira(Automobile auto) throws InterruptedException {
 		
 		parcheggiatoriSemaphore.acquire();
-		
+
 		//region Interlocked
 		Ticket  ticket = null;
 		boolean locked = freeParkingSlotsLock.tryLock(freeParkingSlotFetchTimeout, TimeUnit.SECONDS);

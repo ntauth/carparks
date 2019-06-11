@@ -1,26 +1,25 @@
 package it.unimib.disco.utils;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class ChronoScaler {
 
-	public static final long       DEFAULT_TICK_MULTIPLIER = 1l;
-	public static final ChronoUnit DEFAULT_CHRONO_UNIT = ChronoUnit.SECONDS;
+	public static final long DEFAULT_TICK_MULTIPLIER = 1l;
+	public static final TimeUnit DEFAULT_CHRONO_UNIT = TimeUnit.SECONDS;
 	
 	private static final Map<Class<?>, ChronoScaler> _instances;
 	
-	private ChronoUnit fromUnit;
-	private ChronoUnit toUnit;
+	private TimeUnit fromUnit;
+	private TimeUnit toUnit;
 	private long tickMultiplier;
 
 	static {
 		_instances = new HashMap<>();
 	}
 	
-	private ChronoScaler(ChronoUnit fromUnit, ChronoUnit toUnit, long tickMultiplier) {
+	private ChronoScaler(TimeUnit fromUnit, TimeUnit toUnit, long tickMultiplier) {
 		
 		this.tickMultiplier = tickMultiplier;
 		this.fromUnit = fromUnit;
@@ -37,22 +36,34 @@ public class ChronoScaler {
 		return tickMultiplier;
 	}
 	
-	public ChronoUnit getFromUnit() {
+	public TimeUnit getFromUnit() {
 	
 		return fromUnit;
 	}
 	
-	public ChronoUnit getToUnit() {
+	public TimeUnit getToUnit() {
 		
 		return toUnit;
 	}
 	
-	public long scale(long fromAmount) {
+	public long scale(long duration, Direction direction) {
 		
-		return Duration.of(fromAmount, fromUnit).multipliedBy(tickMultiplier).get(toUnit);
+		long amt;
+		
+		if (direction == Direction.TO)
+			amt = fromUnit.convert(duration / tickMultiplier, toUnit);
+		else
+			amt = toUnit.convert(duration * tickMultiplier, fromUnit);
+		
+		return amt;
 	}
 	
-	public static synchronized ChronoScaler getInstance(Class<?> cls,  ChronoUnit fromUnit, ChronoUnit toUnit, long tickMultiplier) {
+	public long scale(long amount) {
+		
+		return scale(amount, Direction.TO);
+	}
+	
+	public static synchronized ChronoScaler getInstance(Class<?> cls,  TimeUnit fromUnit, TimeUnit toUnit, long tickMultiplier) {
 		
 		ChronoScaler chrono;
 		
@@ -66,12 +77,23 @@ public class ChronoScaler {
 		return chrono;
 	}
 	
+	public static synchronized ChronoScaler getInstance(Class<?> cls,  TimeUnit fromUnit, TimeUnit toUnit) {
+		
+		return getInstance(cls, fromUnit, toUnit, DEFAULT_TICK_MULTIPLIER);
+	}
+	
 	public static synchronized void destroyInstance(Class<?> cls) {
 		
 		if (!_instances.containsKey(cls)) {
 			
 			_instances.remove(cls);
 		}
+	}
+	
+	public enum Direction {
+		
+		FROM,
+		TO
 	}
 	
 }
