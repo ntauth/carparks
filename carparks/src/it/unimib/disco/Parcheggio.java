@@ -1,41 +1,58 @@
 package it.unimib.disco;
 
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
 
 import it.unimib.disco.entities.Automobile;
-import it.unimib.disco.entities.Automobilista;
 import it.unimib.disco.entities.Parcheggiatore;
 import it.unimib.disco.entities.Ticket;
+import it.unimib.disco.utils.ChronoScaler;
 
 public class Parcheggio implements Callable<Void> {
 	
+	protected static final long FPS_SEM_ACQUIRE_TIMEOUT_INITIAL = 500L;
+	protected static final long PARK_SEM_ACQUIRE_TIMEOUT_INITIAL = 500L;
+	
+	protected ChronoScaler chronoScaler;
+	
 	protected Semaphore freeParkingSlotsSemaphore;
+	protected long fpsSemAcquireTimeout;
 	
 	protected Queue<Parcheggiatore> parcheggiatori;
 	protected Semaphore parcheggiatoriSemaphore;
+	protected long parkSemAcquireTimeout;
 	
-	protected Map<Ticket, Automobile>    ticketAutoMap;
-	protected Map<Ticket, Automobilista> ticketAutomobilistaMap;
+	protected Map<Ticket, Automobile> ticketAutoMap;
 	
 	protected ConcurrentLinkedQueue<RitiroRequest> ritiroRequests;
 	protected ConcurrentLinkedQueue<RestituzioneRequest> restituzioneRequests;
 	
 	public Parcheggio(int freeParkingSlots, List<Parcheggiatore> parcheggiatori) {
 		
-		this.freeParkingSlotsSemaphore = new Semaphore(freeParkingSlots, true);
-		this.parcheggiatori = new LinkedList<>(); // Dependency injection
+		this.chronoScaler = ChronoScaler.getInstance(Parcheggio.class, TimeUnit.SECONDS, TimeUnit.MILLISECONDS);
 		
+		this.freeParkingSlotsSemaphore = new Semaphore(freeParkingSlots, true);
+		this.fpsSemAcquireTimeout = FPS_SEM_ACQUIRE_TIMEOUT_INITIAL;
+		
+		this.parcheggiatoriSemaphore = new Semaphore(parcheggiatori.size(), true);
+		this.parcheggiatori = new LinkedList<>();
+		this.parkSemAcquireTimeout = PARK_SEM_ACQUIRE_TIMEOUT_INITIAL;
+		
+		// Dependency Injection
 		for (Parcheggiatore p : parcheggiatori)
 			this.parcheggiatori.add(p);
+		
+		this.ticketAutoMap = new HashMap<>();
+		
+		this.ritiroRequests = new ConcurrentLinkedQueue<>();
+		this.restituzioneRequests = new ConcurrentLinkedQueue<>();
 	}
 	
 	@Override
@@ -50,70 +67,84 @@ public class Parcheggio implements Callable<Void> {
 		
 		while (true) {
 			
-			RitiroRequest rireq = ritiroRequests.poll();
+			RitiroRequest rireq = ritiroRequests.peek();
 			
-			if (rireq != null)
+			if (rireq != null) {
+				
 				onRitira(rireq);
+				
+				if (rireq.isFulfilled() || rireq.isCanceled())
+					ritiroRequests.poll();
+			}
 			
-			RestituzioneRequest rereq = restituzioneRequests.poll();
+			RestituzioneRequest rereq = restituzioneRequests.peek();
 			
-			if (rereq != null)
+			if (rereq != null) {
+				
 				onRestituisci(rereq);
+				
+				if (rereq.isFulfilled() || rereq.isCanceled())
+					restituzioneRequests.poll();
+			}
 		}
 	}
 	
 	protected void onRitira(RitiroRequest request) throws InterruptedException {
 		
-//		parcheggiatoriSemaphore.acquire();
-//
-//		//region Interlocked
-//		Ticket  ticket = null;
-//		boolean locked = freeParkingSlotsLock.tryLock(freeParkingSlotFetchTimeout, TimeUnit.SECONDS);
-//		
-//		if (locked) {
-//			
-//			int freeSlotIndex = -1;
-//			
-//			for (int i = 0; i < freeParkingSlots.length; i++) {
-//				
-//				if (freeParkingSlots[i]) {
-//					
-//					freeSlotIndex = i;
-//					break;
-//				}
-//			}
-//			
-//			if (freeSlotIndex > 0) {
-//				
-//				freeParkingSlots[freeSlotIndex] = false;
-//				
-//				// Create the ticket
-//				ticket = new Ticket();
-//			}
-//		}
-//		//endregion
-//		
-//		parcheggiatoriSemaphore.release();
-//		
-//		return ticket;
+		boolean fpsAcquired = freeParkingSlotsSemaphore.tryAcquire(fpsSemAcquireTimeout, TimeUnit.MILLISECONDS);
+
+		if (fpsAcquired) {
+			
+			boolean parkAcquired = parcheggiatoriSemaphore.tryAcquire(parkSemAcquireTimeout, TimeUnit.MILLISECONDS);
+			
+			//region Interlocked
+			if (parkAcquired) {
+				
+				boolean alreadyCanceled = request.handle();
+				
+				if (!alreadyCanceled) {
+					
+					// @todo: Invoke Parcheggiatore#ritira
+					// <---->
+					
+					Ticket ticket = new Ticket();
+					ticketAutoMap.put(ticket, request.getPayload());
+					
+					request.fulfill(ticket);
+				}
+			
+				parcheggiatoriSemaphore.release();
+			}
+			//endregion
+		}
 	}
 	
-//	public Optional<Ticket> tryRitira(Automobile auto) {
-//	
-//		Optional<Ticket> nullableTicket;
-//		
-//		try {
-//			nullableTicket = Optional.of(ritira(auto));
-//		}
-//		catch (InterruptedException e) {
-//			nullableTicket = Optional.empty();
-//		}
-//		
-//		return nullableTicket;
-//	}
-	
-	protected void onRestituisci(RestituzioneRequest request) {
+	protected void onRestituisci(RestituzioneRequest request) throws InterruptedException {
 		
+		boolean parkAcquired = parcheggiatoriSemaphore.tryAcquire(parkSemAcquireTimeout, TimeUnit.MILLISECONDS);
+		
+		if (parkAcquired) {
+			
+			//region Interlocked
+			Ticket ticket = request.getPayload();
+			
+			boolean alreadyCanceled = request.handle();
+			
+			if (!alreadyCanceled) {
+				
+				// @todo: Invoke Parcheggiatore#restituisci
+				// <---->
+				
+				Automobile automobile = ticketAutoMap.remove(ticket);
+				request.fulfill(automobile);
+				
+				// Release the parking slot
+				freeParkingSlotsSemaphore.release();
+			}
+			
+			parcheggiatoriSemaphore.release();
+			//endregion
+		}
 	}
 	
 	public void ritira(RitiroRequest request) {

@@ -56,29 +56,35 @@ public abstract class Request<P> extends Observable {
 	
 	public boolean handle() {
 		
-		boolean prev = false;
+		boolean ok = false;
 		
 		lock.lock();
 		
-		if (!canceled)
-			prev = SynchroPrimitives.testAndSet(beingHandled);
+		if (!canceled) {
+			
+			SynchroPrimitives.testAndSet(beingHandled);
+			ok = true;
+		}
 		
 		lock.unlock();
 		
-		return prev;
+		return ok;
 	}
 	
 	public boolean cancel() {
 		
-		boolean prev = false;
+		boolean ok = false;
 		
 		lock.lock();
 		
-		if (!beingHandled && !fulfilled)
-			prev = SynchroPrimitives.testAndSet(canceled);
+		if (!beingHandled && !fulfilled) {
+			
+			SynchroPrimitives.testAndSet(canceled);
+			ok = true;
+		}
 		
 		lock.unlock();
 		
-		return prev;
+		return ok;
 	}
 }
