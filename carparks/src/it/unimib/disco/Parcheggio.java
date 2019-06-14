@@ -13,14 +13,11 @@ import java.util.concurrent.TimeUnit;
 import it.unimib.disco.entities.Automobile;
 import it.unimib.disco.entities.Parcheggiatore;
 import it.unimib.disco.entities.Ticket;
-import it.unimib.disco.utils.ChronoScaler;
 
 public class Parcheggio implements Callable<Void> {
 	
 	protected static final long FPS_SEM_ACQUIRE_TIMEOUT_INITIAL = 500L;
 	protected static final long PARK_SEM_ACQUIRE_TIMEOUT_INITIAL = 500L;
-	
-	protected ChronoScaler chronoScaler;
 	
 	protected Semaphore freeParkingSlotsSemaphore;
 	protected long fpsSemAcquireTimeout;
@@ -35,8 +32,6 @@ public class Parcheggio implements Callable<Void> {
 	protected ConcurrentLinkedQueue<RestituzioneRequest> restituzioneRequests;
 	
 	public Parcheggio(int freeParkingSlots, List<Parcheggiatore> parcheggiatori) {
-		
-		this.chronoScaler = ChronoScaler.getInstance(Parcheggio.class, TimeUnit.SECONDS, TimeUnit.MILLISECONDS);
 		
 		this.freeParkingSlotsSemaphore = new Semaphore(freeParkingSlots, true);
 		this.fpsSemAcquireTimeout = FPS_SEM_ACQUIRE_TIMEOUT_INITIAL;
@@ -100,9 +95,9 @@ public class Parcheggio implements Callable<Void> {
 			//region Interlocked
 			if (parkAcquired) {
 				
-				boolean alreadyCanceled = request.handle();
+				boolean handleAcquired = request.handle();
 				
-				if (!alreadyCanceled) {
+				if (handleAcquired) {
 					
 					// @todo: Invoke Parcheggiatore#ritira
 					// <---->
@@ -128,9 +123,9 @@ public class Parcheggio implements Callable<Void> {
 			//region Interlocked
 			Ticket ticket = request.getPayload();
 			
-			boolean alreadyCanceled = request.handle();
+			boolean handleAcquired = request.handle();
 			
-			if (!alreadyCanceled) {
+			if (handleAcquired) {
 				
 				// @todo: Invoke Parcheggiatore#restituisci
 				// <---->

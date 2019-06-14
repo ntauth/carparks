@@ -1,6 +1,8 @@
 package it.unimib.disco.entities;
 
-public class Parcheggiatore {
+import java.util.concurrent.Callable;
+
+public class Parcheggiatore implements Callable<Void> {
 
 	public void ritira(Automobile auto) {
 		
@@ -8,6 +10,12 @@ public class Parcheggiatore {
 	
 	public void restituisci(Automobile auto) {
 		
+	}
+
+	@Override
+	public Void call() throws Exception {
+		// TODO Auto-generated method stub
+		return null;
 	}
 	
 }
