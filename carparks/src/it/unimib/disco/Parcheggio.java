@@ -86,11 +86,11 @@ public class Parcheggio implements Callable<Void> {
 	
 	protected void onRitira(RitiroRequest request) throws InterruptedException {
 		
-		boolean fpsAcquired = freeParkingSlotsSemaphore.tryAcquire(fpsSemAcquireTimeout, TimeUnit.MILLISECONDS);
+		boolean fpsAcquired = freeParkingSlotsSemaphore.tryAcquire(fpsSemAcquireTimeout, TimeUnit.MICROSECONDS);
 
 		if (fpsAcquired) {
 			
-			boolean parkAcquired = parcheggiatoriSemaphore.tryAcquire(parkSemAcquireTimeout, TimeUnit.MILLISECONDS);
+			boolean parkAcquired = parcheggiatoriSemaphore.tryAcquire(parkSemAcquireTimeout, TimeUnit.MICROSECONDS);
 			
 			//region Interlocked
 			if (parkAcquired) {
@@ -142,13 +142,28 @@ public class Parcheggio implements Callable<Void> {
 		}
 	}
 	
-	public void ritira(RitiroRequest request) {
-		
+	public void ritira(RitiroRequest request) {	
 		ritiroRequests.add(request);
 	}
 	
 	public void restituisci(RestituzioneRequest request) {
-		
 		restituzioneRequests.add(request);
 	}
+	
+	public int getFreeParkingSlots() {
+		return freeParkingSlotsSemaphore.availablePermits();
+	}
+	
+	public int getFreeParcheggiatori() {
+		return parcheggiatoriSemaphore.availablePermits();
+	}
+	
+	public int getRitiriRequestsCount() {
+		return ritiroRequests.size();
+	}
+	
+	public int getRestituzioneRequestsCount() {
+		return restituzioneRequests.size();
+	}
+	
 }

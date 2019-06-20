@@ -15,6 +15,7 @@ public class Automobilista {
 	protected Automobile automobile;
 	protected Parcheggio parcheggio;
 	protected Ticket ticket;
+	protected Object ticketMonitor;
 	
 	static {
 		_logger = Logger.getLogger(Automobilista.class.getName());
@@ -26,6 +27,7 @@ public class Automobilista {
 		this.automobile = automobile;
 		this.parcheggio = parcheggio;
 		this.ticket = null;
+		this.ticketMonitor = new Object();
 	}
 	
 	public Automobilista(Automobile automobile, Parcheggio parcheggio) {
@@ -36,6 +38,10 @@ public class Automobilista {
 		
 		this.ticket = (Ticket) ticket;
 		this.automobile = null;
+		
+		synchronized (ticketMonitor) {
+			ticketMonitor.notify();
+		}
 		
 		if (loggingEnabled)
 			_logger.info(String.format("[A] Ticket %s emesso", this.ticket.getUuid()));
@@ -93,6 +99,13 @@ public class Automobilista {
 
 	public void setTicket(Ticket ticket) {
 		this.ticket = ticket;
+	}
+	
+	public void waitOnTicket() throws InterruptedException {
+		
+		synchronized (ticketMonitor) {
+			ticketMonitor.wait();
+		}
 	}
 	
 }

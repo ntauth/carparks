@@ -16,7 +16,7 @@ import it.unimib.disco.utils.Chrono;
 import it.unimib.disco.utils.PoissonProcess;
 
 /**
- * @todo Implement the distribution as a strategy
+ * @todo Proper simulation time scaling
  * 
  */
 public final class ParcheggioSimulator implements Callable<Void> {
@@ -29,8 +29,7 @@ public final class ParcheggioSimulator implements Callable<Void> {
 	
 	private final Random rng;
 	private final PoissonProcess poisson;
-	private final TimeUnit srcUnit;
-	private final TimeUnit dstUnit;
+	private final double carParkRate;
 	
 	private long timeStep;
 	
@@ -45,7 +44,7 @@ public final class ParcheggioSimulator implements Callable<Void> {
 	 * @param freeParcheggiatori Initial free valets
 	 * @param scaler Time scaler
 	 */
-	public ParcheggioSimulator(double lambda, int freeParkingSlots, int freeParcheggiatori, TimeUnit srcUnit, TimeUnit dstUnit) {
+	public ParcheggioSimulator(double lambda, int freeParkingSlots, int freeParcheggiatori) {
 		
 		this.parcheggiatori = new ArrayList<>();
 		
@@ -57,8 +56,7 @@ public final class ParcheggioSimulator implements Callable<Void> {
 		
 		this.rng = new Random(Chrono.getCurrentTime());
 		this.poisson = new PoissonProcess(lambda, rng);
-		this.srcUnit = srcUnit;
-		this.dstUnit = dstUnit;
+		this.carParkRate = lambda;
 		
 		this.timeStep = 0;
 	}
@@ -84,11 +82,13 @@ public final class ParcheggioSimulator implements Callable<Void> {
 		// Simulation loop
 		while (true) {
 			
-			_logger.info(String.format("[P] Time Step: %d", timeStep));
+			_logger.info(String.format("[P] Time Step: ~ %d s. Free slots: %d - Free valets: %d", timeStep, 
+					parcheggio.getFreeParkingSlots(), parcheggio.getFreeParcheggiatori()));
 			
-			double ppDelta = poisson.timeForNextEvent();
-			long delta = (long) (10 * ppDelta);
-			dstUnit.sleep(delta);
+			double delta = poisson.timeForNextEvent();
+			long deltaMs = (long) (1000 * delta);
+			
+			TimeUnit.MILLISECONDS.sleep(deltaMs);
 			
 			Automobile auto = new Automobile();
 			Automobilista owner = new Automobilista(auto, parcheggio, true);
@@ -97,16 +97,21 @@ public final class ParcheggioSimulator implements Callable<Void> {
 				
 				owner.consegna();
 				
+
 				/**
 				 * @todo Replace with a normal random variate
 				 */
-				try { dstUnit.sleep(rng.nextLong() % 5); }
+				try {
+					
+					owner.waitOnTicket();
+					TimeUnit.MILLISECONDS.sleep((long) (1000 / carParkRate)); 
+				}
 				catch (InterruptedException e) { }
 				
 				owner.preleva();
 			});
 			
-			timeStep += delta;
+			timeStep += deltaMs / 1000;
 		}
 	}
 	
