@@ -40,9 +40,8 @@ public final class ParcheggioSimulator implements Callable<Void> {
 	/**
 	 * 
 	 * @param lambda Rate at which cars request to park
-	 * @param freeParkingSlots Initial free parking slots
-	 * @param freeParcheggiatori Initial free valets
-	 * @param scaler Time scaler
+	 * @param freeParkingSlots Initial number of free parking slots
+	 * @param freeParcheggiatori Initial number of free valets ("parcheggiatori")
 	 */
 	public ParcheggioSimulator(double lambda, int freeParkingSlots, int freeParcheggiatori) {
 		
@@ -83,7 +82,7 @@ public final class ParcheggioSimulator implements Callable<Void> {
 		while (true) {
 			
 			_logger.info(String.format("[P] Time Step: ~ %d s. Free slots: %d - Free valets: %d", timeStep, 
-					parcheggio.getFreeParkingSlots(), parcheggio.getFreeParcheggiatori()));
+					parcheggio.getFreeParkingSlots(), parcheggio.getFreeValets()));
 			
 			double delta = poisson.timeForNextEvent();
 			long deltaMs = (long) (1000 * delta);
@@ -96,7 +95,6 @@ public final class ParcheggioSimulator implements Callable<Void> {
 			executor.submit(() -> {
 				
 				owner.consegna();
-				
 
 				/**
 				 * @todo Replace with a normal random variate
