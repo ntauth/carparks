@@ -1,11 +1,7 @@
-package it.unimib.disco.entities;
+package it.unimib.disco.domain;
 
 import java.util.Observable;
 import java.util.logging.Logger;
-
-import it.unimib.disco.Parcheggio;
-import it.unimib.disco.RestituzioneRequest;
-import it.unimib.disco.RitiroRequest;
 
 public class Automobilista {
 

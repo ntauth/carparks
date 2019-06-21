@@ -1,4 +1,4 @@
-package it.unimib.disco;
+package it.unimib.disco.domain;
 
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -6,22 +6,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-import it.unimib.disco.entities.Automobile;
-import it.unimib.disco.entities.Parcheggiatore;
-import it.unimib.disco.entities.Ticket;
-
 public class Parcheggio extends Observable implements Callable<Void> {
 	
 	public static final int RESERVATION_TIME_SLOT_COUNT = 48;
 	
-	protected static final long FPS_SEM_ACQUIRE_TIMEOUT_INITIAL = 500L;
-	protected static final long PARK_SEM_ACQUIRE_TIMEOUT_INITIAL = 500L;
+	protected static final long PARKSLOT_SEMAPHORE_ACQUIRE_TIMEOUT = 500L;
+	protected static final long VALETS_SEMAPHORE_ACQUIRE_TIMEOUT = 500L;
 	
+	protected int id;
 	protected String name;
 	
 	protected Map<Integer, Boolean> freeReservationTimeSlots;
@@ -40,10 +38,10 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	
 	public Parcheggio(int freeParkingSlots, List<Parcheggiatore> valets) {
 		
-		this("", freeParkingSlots, valets);
+		this(UUID.randomUUID().hashCode(), "", freeParkingSlots, valets);
 	}
 	
-	public Parcheggio(String name, int freeParkingSlots, List<Parcheggiatore> valets) {
+	public Parcheggio(int id, String name, int freeParkingSlots, List<Parcheggiatore> valets) {
 		
 		// Create the time slots and initialize them all to true (free)
 		this.freeReservationTimeSlots = new HashMap<>();
@@ -52,11 +50,11 @@ public class Parcheggio extends Observable implements Callable<Void> {
 			freeReservationTimeSlots.put(i, true);
 		
 		this.freeParkingSlotsSemaphore = new Semaphore(freeParkingSlots, true);
-		this.fpsSemAcquireTimeout = FPS_SEM_ACQUIRE_TIMEOUT_INITIAL;
+		this.fpsSemAcquireTimeout = PARKSLOT_SEMAPHORE_ACQUIRE_TIMEOUT;
 		
 		this.valetsSemaphore = new Semaphore(valets.size(), true);
 		this.valets = new LinkedList<>();
-		this.parkSemAcquireTimeout = PARK_SEM_ACQUIRE_TIMEOUT_INITIAL;
+		this.parkSemAcquireTimeout = VALETS_SEMAPHORE_ACQUIRE_TIMEOUT;
 		
 		// Dependency Injection
 		for (Parcheggiatore p : valets)
@@ -177,6 +175,10 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		restituzioneRequests.add(request);
 	}
 	
+	public int getId() {
+		return id;
+	}
+
 	public String getName() {
 		return name;
 	}
@@ -211,16 +213,66 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	 */
 	public static class Snapshot {
 
+		protected int parcheggioId;
+		protected String parcheggioName;
+		
 		protected Map<Integer, Boolean> freeReservationTimeSlots;
+		protected int freeParkingSlots;
+		protected int freeValets;
 		
 		public Snapshot(Parcheggio target) {
 			
+			parcheggioId = target.id;
+			parcheggioName = target.name;
 			freeReservationTimeSlots = target.freeReservationTimeSlots;
+			freeParkingSlots = target.getFreeParkingSlots();
+			freeValets = target.getFreeValets();
+		}
+
+		public int getParcheggioId() {
+			return parcheggioId;
+		}
+
+		public void setParcheggioId(int parcheggioId) {
+			this.parcheggioId = parcheggioId;
+		}
+
+		public String getParcheggioName() {
+			return parcheggioName;
+		}
+
+		public void setParcheggioName(String parcheggioName) {
+			this.parcheggioName = parcheggioName;
+		}
+
+		public Map<Integer, Boolean> getFreeReservationTimeSlots() {
+			return freeReservationTimeSlots;
+		}
+
+		public void setFreeReservationTimeSlots(Map<Integer, Boolean> freeReservationTimeSlots) {
+			this.freeReservationTimeSlots = freeReservationTimeSlots;
+		}
+
+		public int getFreeParkingSlots() {
+			return freeParkingSlots;
+		}
+
+		public void setFreeParkingSlots(int freeParkingSlots) {
+			this.freeParkingSlots = freeParkingSlots;
+		}
+
+		public int getFreeValets() {
+			return freeValets;
+		}
+
+		public void setFreeValets(int freeValets) {
+			this.freeValets = freeValets;
 		}
 
 		public Map<Integer, Boolean> getFreeTimeSlots() {
 			return freeReservationTimeSlots;
 		}
+		
 	}
 
 }

@@ -1,4 +1,4 @@
-package it.unimib.disco;
+package it.unimib.disco.domain;
 
 import java.util.Observable;
 import java.util.concurrent.locks.Lock;

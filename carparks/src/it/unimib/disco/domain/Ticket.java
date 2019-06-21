@@ -1,4 +1,4 @@
-package it.unimib.disco.entities;
+package it.unimib.disco.domain;
 
 import java.util.UUID;
 

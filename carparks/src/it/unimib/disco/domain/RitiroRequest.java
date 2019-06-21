@@ -1,7 +1,4 @@
-package it.unimib.disco;
-
-import it.unimib.disco.entities.Automobile;
-import it.unimib.disco.entities.Ticket;
+package it.unimib.disco.domain;
 
 public class RitiroRequest extends Request<Automobile> {
 

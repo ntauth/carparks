@@ -5,6 +5,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
@@ -17,28 +18,28 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import it.unimib.disco.Parcheggio;
+import it.unimib.disco.domain.Parcheggio;
+import it.unimib.disco.domain.Parcheggio.Snapshot;
 
 
 public class SocketServer implements Callable<Void> {
 	
-	protected ApplicationContext appContext;
-	
+	protected ISerializationPolicy policy;
 	protected ExecutorService executor;
 	protected ServerSocket serverSocket;
 	protected List<Socket> clientSockets;
 	protected Lock clientSocketsLock;
 	protected AtomicBoolean abortListenLoop;
+	protected List<Snapshot> snapshots;
 	
-	public SocketServer(ApplicationContext ctx, int port) throws IOException {
-		
-		appContext = ctx;
-		
+	public SocketServer(int port) throws IOException {
+		policy = new JsonSerializationPolicy();
 		executor = Executors.newCachedThreadPool();
 		serverSocket = new ServerSocket(port);
 		clientSockets = new ArrayList<>();
 		clientSocketsLock = new ReentrantLock();
 		abortListenLoop = new AtomicBoolean(false);
+		snapshots = new ArrayList<Snapshot>();
 	}
 
 	@Override
@@ -84,9 +85,14 @@ public class SocketServer implements Callable<Void> {
 			 */
 			while (true) {
 				lineIn = (String) in.readObject();
-				NetMessage message = mapper.readValue(lineIn, NetMessage.class);
-				
-				NetMessage response = processMessage(message);
+				NetMessage message = 
+						(NetMessage) policy.deserialize(lineIn.getBytes(), 
+														NetMessage.class);
+				if (message instanceof ClientNetMessage)
+				{
+					ClientNetMessage response = 
+							processClientMessage((ClientNetMessage) message);
+				}
 				
 				out.writeObject(mapper.writerWithDefaultPrettyPrinter()
 										.writeValueAsString(response));
@@ -116,26 +122,22 @@ public class SocketServer implements Callable<Void> {
 	 * @param request Client request.
 	 * @return Response of the processed request.
 	 */
-	private NetMessage processMessage(NetMessage request)
+	private ClientNetMessage processClientMessage(ClientNetMessage request)
 	{
-		NetMessage response = null;
+		ClientNetMessage response = null;
 		NetMessageType messageType = request.getType();
 		switch(messageType)
 		{
 			case AVAILABLE:
-				List<Parcheggio> parking = this.appContext.getParcheggi();
-				List<Entry<String, String>> availableParking = 
-							new ArrayList<Entry<String, String>>();
-				for (int i = 0; i < parking.size(); i++)
+				List<Snapshot> availableParking = 
+					new ArrayList<Snapshot>();
+				for (Snapshot s : snapshots)
 				{
-					Parcheggio p = parking.get(i);
-					if (p.getFreeParkingSlots() <= 0)
-					{
-						String freeSlots = Integer.toString(i);
-						String name = p.getName();
-						//Finish
-					}
+					if(s.getFreeParkingSlots()>0)
+						availableParking.add(s);
 				}
+				response = new ClientNetMessage(NetMessageType.AVAILABLE, 
+												availableParking);
 			case BOOK:
 				//Book specified parking
 		}

@@ -1,4 +1,4 @@
-package it.unimib.disco;
+package it.unimib.disco.domain;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,9 +9,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
-import it.unimib.disco.entities.Automobile;
-import it.unimib.disco.entities.Automobilista;
-import it.unimib.disco.entities.Parcheggiatore;
 import it.unimib.disco.utils.Chrono;
 import it.unimib.disco.utils.PoissonProcess;
 

@@ -1,4 +1,4 @@
-package it.unimib.disco;
+package it.unimib.disco.domain;
 
 import java.util.Scanner;
 import java.util.concurrent.Executors;
