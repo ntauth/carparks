@@ -5,6 +5,8 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import it.unimib.disco.net.NetMessage;
+
 public class Main2 {
 
 	public static void main(String[] args) throws Exception
@@ -14,7 +16,7 @@ public class Main2 {
 		PrintWriter pw = new PrintWriter(client.getOutputStream());
 		BufferedReader br = new BufferedReader(new InputStreamReader(client.getInputStream()));
 		String line;
-		NetMessage m = new NetMessage();
+		NetMessage m = null;
 		ObjectMapper om = new ObjectMapper();
 		String json = om.writerWithDefaultPrettyPrinter().writeValueAsString(m);
 		pw.println(m);

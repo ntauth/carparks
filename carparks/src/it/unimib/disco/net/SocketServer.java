@@ -1,14 +1,13 @@
 package it.unimib.disco.net;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -16,9 +15,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import it.unimib.disco.domain.Parcheggio;
 import it.unimib.disco.domain.Parcheggio.Snapshot;
 
 
@@ -33,6 +29,7 @@ public class SocketServer implements Callable<Void> {
 	protected List<Snapshot> snapshots;
 	
 	public SocketServer(int port) throws IOException {
+		
 		policy = new JsonSerializationPolicy();
 		executor = Executors.newCachedThreadPool();
 		serverSocket = new ServerSocket(port);
@@ -67,35 +64,32 @@ public class SocketServer implements Callable<Void> {
 	protected void handleClient(Socket client) {
 		
 		//Per la lettura e scrittura client/server
-		ObjectOutputStream out = null;
-		ObjectInputStream in = null;
+		PrintWriter out = null;
+		BufferedReader in = null;
 		String lineIn;
-		
-		ObjectMapper mapper = new ObjectMapper(); /* Per serializzare un oggetto
-													 java in json e viceversa */
 		
 		try {
 			
-			out = new ObjectOutputStream(client.getOutputStream());
-			in = new ObjectInputStream(client.getInputStream());
+			out = new PrintWriter(client.getOutputStream());
+			in = new BufferedReader(new InputStreamReader(client.getInputStream()));
 			
 			/* Ricevo un messaggio con dentro una richiesta,
 			 * lo deserializzo, lo elaboro, ed alla fine
 			 * invio la risposta.
 			 */
-			while (true) {
-				lineIn = (String) in.readObject();
+			while ((lineIn = in.readLine()) != null) {
 				NetMessage message = 
 						(NetMessage) policy.deserialize(lineIn.getBytes(), 
 														NetMessage.class);
-				if (message instanceof ClientNetMessage)
-				{
-					ClientNetMessage response = 
-							processClientMessage((ClientNetMessage) message);
-				}
 				
-				out.writeObject(mapper.writerWithDefaultPrettyPrinter()
-										.writeValueAsString(response));
+				NetMessage response = null;
+				if (message instanceof ClientNetMessage)
+					response = processClientMessage((ClientNetMessage) message);
+				else if (message instanceof ParcheggioNetMessage)
+					response = processParcheggioMessage((ParcheggioNetMessage) message);
+				
+				String jsonString = new String(policy.serialize(response));
+				out.println(jsonString);
 			}
 		}
 		catch (Exception e) {
@@ -138,8 +132,35 @@ public class SocketServer implements Callable<Void> {
 				}
 				response = new ClientNetMessage(NetMessageType.AVAILABLE, 
 												availableParking);
+			break;
 			case BOOK:
 				//Book specified parking
+			default:
+				break;
+		}
+		return response;
+	}
+	
+	private ParcheggioNetMessage processParcheggioMessage(ParcheggioNetMessage message)
+	{
+		ParcheggioNetMessage response = null;
+		NetMessageType messageType = message.getType();
+		switch(messageType)
+		{
+			case SNAPSHOT_UPDATE:
+				Snapshot messageSnapshot = message.getParking();
+				int toChange = 0;
+				for (toChange = 0; toChange < this.snapshots.size(); toChange++)
+				{
+					Snapshot current = this.snapshots.get(toChange);
+					if (current.getParcheggioId() == messageSnapshot.getParcheggioId())
+						break;				
+				}
+				this.snapshots.remove(toChange);
+				this.snapshots.add(messageSnapshot);
+				break;
+			default:
+				break;
 		}
 		return response;
 	}

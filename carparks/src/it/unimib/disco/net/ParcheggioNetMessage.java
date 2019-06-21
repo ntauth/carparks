@@ -13,13 +13,13 @@ import it.unimib.disco.domain.Parcheggio.Snapshot;
  */
 public class ParcheggioNetMessage extends NetMessage{
 	
-	private List<Snapshot> parking; /* In caso di prenotazione per
+	private Snapshot parking; /* In caso di prenotazione per
 													un parcheggio, quello da 
 													prenotare sarà il primo
 													nella lista parking. */
 	
 	public ParcheggioNetMessage(NetMessageType type, 
-					  			List<Snapshot> parking) 
+								Snapshot parking) 
 	{
 		super(type);
 		this.parking = parking;
@@ -34,7 +34,7 @@ public class ParcheggioNetMessage extends NetMessage{
 	/**
 	 * @return the parking
 	 */
-	public List<Snapshot> getParking() {
+	public Snapshot getParking() {
 		return parking;
 	}
 	/**
@@ -46,19 +46,9 @@ public class ParcheggioNetMessage extends NetMessage{
 	/**
 	 * @param parking the parking to set
 	 */
-	public void setParking(List<Snapshot> parking) {
+	public void setParking(Snapshot parking) {
 		this.parking = parking;
 	}
-	/**
-	 * @return the parking the user intends to book
-	 */
-	public Snapshot getParkingToBook()
-	{
-		Snapshot entry = null;
-		if (this.type == NetMessageType.BOOK) {
-			entry = parking.get(0);
-		}
-		return entry;
-	}
+
 
 }

@@ -10,8 +10,5 @@
 	<classpathentry kind="lib" path="C:/Users/Xboxe/git/carparks/carparks/jar/jackson-core-2.9.9.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Xboxe/git/carparks/carparks/jar/jackson-annotations-2.9.9.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Xboxe/git/carparks/carparks/jar/jackson-databind-2.9.9.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Farjad/Desktop/jackson-annotations-2.9.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Farjad/Desktop/jackson-core-2.9.9.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Farjad/Desktop/jackson-databind-2.9.9.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
