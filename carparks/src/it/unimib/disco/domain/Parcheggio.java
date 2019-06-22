@@ -1,5 +1,6 @@
 package it.unimib.disco.domain;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -11,6 +12,9 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+
+import it.unimib.disco.net.JsonSerializationPolicy;
+import it.unimib.disco.net.ParcheggioSocketClient;
 
 public class Parcheggio extends Observable implements Callable<Void> {
 	
@@ -33,8 +37,11 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	
 	protected Map<Ticket, Automobile> ticketAutoMap;
 	
+	protected Object requestMonitor;
 	protected ConcurrentLinkedQueue<RitiroRequest> ritiroRequests;
 	protected ConcurrentLinkedQueue<RestituzioneRequest> restituzioneRequests;
+	
+	protected ParcheggioSocketClient socket;
 	
 	public Parcheggio(int freeParkingSlots, List<Parcheggiatore> valets) {
 		
@@ -42,6 +49,9 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	}
 	
 	public Parcheggio(int id, String name, int freeParkingSlots, List<Parcheggiatore> valets) {
+		
+		this.id = id;
+		this.name = name;
 		
 		// Create the time slots and initialize them all to true (free)
 		this.freeReservationTimeSlots = new HashMap<>();
@@ -62,8 +72,27 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		
 		this.ticketAutoMap = new HashMap<>();
 		
+		this.requestMonitor = new Object();
 		this.ritiroRequests = new ConcurrentLinkedQueue<>();
 		this.restituzioneRequests = new ConcurrentLinkedQueue<>();
+		
+		this.socket = new ParcheggioSocketClient(new JsonSerializationPolicy());
+	}
+	
+	public void connectToPlatform(String ip, int port) {
+	
+		socket.connect(ip, port);
+		
+		// Add the platform as a remote observer
+		addObserver((o, s) -> {
+			
+			try {
+				socket.sendSnapshot((Parcheggio.Snapshot) s);
+			}
+			catch (IOException e) {
+				
+			}
+		});
 		
 		// Update the observers, if any
 		onParcheggioUpdate();
@@ -80,6 +109,17 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected void requestWatchdog() throws InterruptedException {
 		
 		while (true) {
+			
+			synchronized (requestMonitor) {
+				
+				int cumulativeSize = ritiroRequests.size() + restituzioneRequests.size();
+				
+				while (cumulativeSize == 0) {
+					
+					requestMonitor.wait();
+					cumulativeSize = ritiroRequests.size() + restituzioneRequests.size();
+				}
+			}
 			
 			RitiroRequest rireq = ritiroRequests.peek();
 			
@@ -125,6 +165,8 @@ public class Parcheggio extends Observable implements Callable<Void> {
 					ticketAutoMap.put(ticket, request.getPayload());
 					
 					request.fulfill(ticket);
+					
+					onParcheggioUpdate();
 				}
 			
 				valetsSemaphore.release();
@@ -154,6 +196,8 @@ public class Parcheggio extends Observable implements Callable<Void> {
 				
 				// Release the parking slot
 				freeParkingSlotsSemaphore.release();
+				
+				onParcheggioUpdate();
 			}
 			
 			valetsSemaphore.release();
@@ -167,12 +211,22 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		notifyObservers(new Snapshot(this));
 	}
 	
-	public void ritira(RitiroRequest request) {	
+	public void ritira(RitiroRequest request) {
+		
 		ritiroRequests.add(request);
+		
+		synchronized (requestMonitor) {
+			requestMonitor.notify();
+		}
 	}
 	
 	public void restituisci(RestituzioneRequest request) {
+		
 		restituzioneRequests.add(request);
+		
+		synchronized (requestMonitor) {
+			requestMonitor.notify();
+		}
 	}
 	
 	public int getId() {
@@ -219,6 +273,10 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		protected Map<Integer, Boolean> freeReservationTimeSlots;
 		protected int freeParkingSlots;
 		protected int freeValets;
+		
+		public Snapshot() {
+			
+		}
 		
 		public Snapshot(Parcheggio target) {
 			

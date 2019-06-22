@@ -1,6 +1,7 @@
 package it.unimib.disco.net;
 
-enum NetMessageType {
+public enum NetMessageType {
+	
 	SNAPSHOT_UPDATE,
 	AVAILABLE, 
 	BOOK

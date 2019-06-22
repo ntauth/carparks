@@ -28,7 +28,11 @@ public abstract class SocketClientBase extends Observable implements ISocketClie
 	@Override
 	public void connect(String ip, int port, Consumer<SocketClientConnectionEventArgs> connectionStatusChangedDelegate) {
 		
-		addObserver((self, args) -> connectionStatusChangedDelegate.accept((SocketClientConnectionEventArgs) args));
+		addObserver((self, args) -> {
+			
+			if (connectionStatusChangedDelegate != null)
+				connectionStatusChangedDelegate.accept((SocketClientConnectionEventArgs) args);
+		});
 		
 		try {
 			

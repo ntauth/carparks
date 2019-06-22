@@ -7,13 +7,17 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 import it.unimib.disco.domain.Parcheggio.Snapshot;
 
@@ -26,7 +30,7 @@ public class SocketServer implements Callable<Void> {
 	protected List<Socket> clientSockets;
 	protected Lock clientSocketsLock;
 	protected AtomicBoolean abortListenLoop;
-	protected List<Snapshot> snapshots;
+	protected Map<Integer, Snapshot> snapshots;
 	
 	public SocketServer(int port) throws IOException {
 		
@@ -36,7 +40,7 @@ public class SocketServer implements Callable<Void> {
 		clientSockets = new ArrayList<>();
 		clientSocketsLock = new ReentrantLock();
 		abortListenLoop = new AtomicBoolean(false);
-		snapshots = new ArrayList<Snapshot>();
+		snapshots = new HashMap<Integer, Snapshot>();
 	}
 
 	@Override
@@ -65,19 +69,20 @@ public class SocketServer implements Callable<Void> {
 		
 		//Per la lettura e scrittura client/server
 		PrintWriter out = null;
-		BufferedReader in = null;
+		Scanner in = null;
 		String lineIn;
 		
 		try {
 			
 			out = new PrintWriter(client.getOutputStream());
-			in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+			in = new Scanner(client.getInputStream());
 			
 			/* Ricevo un messaggio con dentro una richiesta,
 			 * lo deserializzo, lo elaboro, ed alla fine
 			 * invio la risposta.
 			 */
-			while ((lineIn = in.readLine()) != null) {
+			while ((lineIn = in.nextLine()) != null) {
+				
 				NetMessage message = 
 						(NetMessage) policy.deserialize(lineIn.getBytes(), 
 														NetMessage.class);
@@ -90,11 +95,13 @@ public class SocketServer implements Callable<Void> {
 				
 				String jsonString = new String(policy.serialize(response));
 				out.println(jsonString);
+				out.flush();
 			}
 		}
 		catch (Exception e) {
 			// Problema con il client, termina la connessione e basta.
 			// Chiudere gli stream
+			e.printStackTrace();
 			return;
 		}
 		finally {
@@ -106,6 +113,7 @@ public class SocketServer implements Callable<Void> {
 				client.close();
 			}
 			catch (IOException e) {
+				e.printStackTrace();
 				// Eccezione da non gestire.
 			}
 			
@@ -120,21 +128,18 @@ public class SocketServer implements Callable<Void> {
 	{
 		ClientNetMessage response = null;
 		NetMessageType messageType = request.getType();
-		switch(messageType)
+		
+		switch (messageType)
 		{
 			case AVAILABLE:
-				List<Snapshot> availableParking = 
-					new ArrayList<Snapshot>();
-				for (Snapshot s : snapshots)
-				{
-					if(s.getFreeParkingSlots()>0)
-						availableParking.add(s);
-				}
+				List<Snapshot> freeParking = snapshots.values().stream()
+												.filter(s -> s.getFreeParkingSlots() > 0)
+												.collect(Collectors.toList());
 				response = new ClientNetMessage(NetMessageType.AVAILABLE, 
-												availableParking);
-			break;
+												freeParking);
+				break;
 			case BOOK:
-				//Book specified parking
+				// Book specified parking
 			default:
 				break;
 		}
@@ -145,19 +150,15 @@ public class SocketServer implements Callable<Void> {
 	{
 		ParcheggioNetMessage response = null;
 		NetMessageType messageType = message.getType();
-		switch(messageType)
+		
+		switch (messageType)
 		{
 			case SNAPSHOT_UPDATE:
 				Snapshot messageSnapshot = message.getParking();
-				int toChange = 0;
-				for (toChange = 0; toChange < this.snapshots.size(); toChange++)
-				{
-					Snapshot current = this.snapshots.get(toChange);
-					if (current.getParcheggioId() == messageSnapshot.getParcheggioId())
-						break;				
-				}
-				this.snapshots.remove(toChange);
-				this.snapshots.add(messageSnapshot);
+				this.snapshots.put(messageSnapshot.getParcheggioId(), messageSnapshot);
+				System.out.printf("Updated %s, to %d spots\n",
+										messageSnapshot.getParcheggioId(),
+										messageSnapshot.getFreeParkingSlots());
 				break;
 			default:
 				break;

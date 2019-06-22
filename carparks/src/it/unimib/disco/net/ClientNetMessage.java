@@ -10,6 +10,11 @@ public class ClientNetMessage extends NetMessage {
 	private int slot = 0;
 	private Snapshot selectedSnapshot = null;
 	
+	public ClientNetMessage()
+	{
+		//Per jackson
+	}
+	
 	public ClientNetMessage(NetMessageType type) {
 		super(type);
 		// TODO Auto-generated constructor stub

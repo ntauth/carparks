@@ -1,8 +1,5 @@
 package it.unimib.disco.net;
 
-
-import java.util.List;
-
 import it.unimib.disco.domain.Parcheggio.Snapshot;
 
 /**
@@ -17,6 +14,11 @@ public class ParcheggioNetMessage extends NetMessage{
 													un parcheggio, quello da 
 													prenotare sarà il primo
 													nella lista parking. */
+	
+	public ParcheggioNetMessage()
+	{
+		//Per Jackson
+	}
 	
 	public ParcheggioNetMessage(NetMessageType type, 
 								Snapshot parking) 

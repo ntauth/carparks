@@ -1,4 +1,4 @@
-package it.unimib.disco.utils.tests;
+package it.unimib.disco.tests;
 
 import java.util.logging.Logger;
 
@@ -6,7 +6,7 @@ import it.unimib.disco.net.SocketServer;
 
 public class SocketServerMain {
 
-	public static final int DEFAULT_BIND_PORT = 1337;
+	public static final int DEFAULT_BIND_PORT = 4242;
 
 	private static final Logger _logger = Logger.getLogger(SocketServerMain.class.getName());
 	

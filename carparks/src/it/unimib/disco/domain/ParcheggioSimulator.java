@@ -109,5 +109,9 @@ public final class ParcheggioSimulator implements Callable<Void> {
 			timeStep += deltaMs / 1000;
 		}
 	}
+
+	public Parcheggio getParcheggio() {
+		return parcheggio;
+	}
 	
 }

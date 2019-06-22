@@ -1,8 +1,6 @@
 package it.unimib.disco.net;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
@@ -12,8 +10,6 @@ import it.unimib.disco.domain.Parcheggio;
 
 public class ParcheggioSocketClient extends SocketClientBase {
 
-	protected InputStream istream;
-	protected OutputStream ostream;
 	protected Scanner reader;
 	protected PrintWriter writer;
 	
@@ -29,7 +25,7 @@ public class ParcheggioSocketClient extends SocketClientBase {
 	
 	public void sendSnapshot(Parcheggio.Snapshot snapshot) throws IOException {
 		
-		writeObject(snapshot);
+		writeObject(new ParcheggioNetMessage(NetMessageType.SNAPSHOT_UPDATE, snapshot));
 	}
 	
 	@Override
@@ -40,7 +36,7 @@ public class ParcheggioSocketClient extends SocketClientBase {
 		if (connectionStatus == SocketClientConnectionStatus.CONNECTED) {
 			
 			reader = new Scanner(istream);
-			writer = new PrintWriter(ostream);
+			writer = new PrintWriter(ostream, true);
 		}
 	}
 	
@@ -72,7 +68,7 @@ public class ParcheggioSocketClient extends SocketClientBase {
 	public void writeObject(Object obj) throws IOException {
 		
 		assert writer != null;
-		
+
 		writer.println(new String(serializationPolicy.serialize(obj)));
 	}
 	

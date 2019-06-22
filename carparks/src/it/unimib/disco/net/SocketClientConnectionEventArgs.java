@@ -31,7 +31,7 @@ public class SocketClientConnectionEventArgs {
 	}
 
 	public void setException(Exception exception) {
-		this.exception = Optional.of(exception);
+		this.exception = Optional.ofNullable(exception);
 	}
 	
 }
