@@ -1,4 +1,4 @@
-package it.unimib.disco.net;
+package it.unimib.disco.net.message;
 
 import java.util.List;
 
@@ -7,7 +7,6 @@ import it.unimib.disco.domain.Parcheggio.Snapshot;
 public class ClientNetMessage extends NetMessage {
 
 	private List<Snapshot> snapshots = null;
-	private int slot = 0;
 	private Snapshot selectedSnapshot = null;
 	
 	public ClientNetMessage()
@@ -20,11 +19,16 @@ public class ClientNetMessage extends NetMessage {
 		// TODO Auto-generated constructor stub
 	}
 
+	public ClientNetMessage(NetMessageType type, Snapshot toBook, int slot)
+	{
+		super(type, slot);
+		selectedSnapshot = toBook;
+	}
+	
 	public ClientNetMessage(NetMessageType type, List<Snapshot> snapshots, int slot)
 	{
-		super(type);
+		super(type, slot);
 		this.snapshots = snapshots;
-		this.slot = slot;
 	}
 	
 	public ClientNetMessage(NetMessageType type, List<Snapshot> snapshots)

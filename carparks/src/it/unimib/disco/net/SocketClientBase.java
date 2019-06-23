@@ -5,7 +5,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Observable;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+
+import it.unimib.disco.net.serialization.DefaultSerializationPolicy;
+import it.unimib.disco.net.serialization.ISerializationPolicy;
 
 public abstract class SocketClientBase extends Observable implements ISocketClient {
 
@@ -53,6 +57,22 @@ public abstract class SocketClientBase extends Observable implements ISocketClie
 		}
 	}
 
+	@Override
+	public CompletableFuture<Object> readObjectAsync(Class<?> archetype) {
+		
+		CompletableFuture<Object> promise = CompletableFuture.supplyAsync(() -> {
+			
+			try {
+				return readObject(archetype);
+			}
+			catch (Exception e) {
+				return e;
+			}
+		});
+		
+		return promise;
+	}
+	
 	protected void onConnectStatusChanged(SocketClientConnectionEventArgs args) {
 		
 		connectionStatus = args.getStatus();

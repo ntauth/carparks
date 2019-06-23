@@ -5,7 +5,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import it.unimib.disco.net.NetMessage;
+import it.unimib.disco.net.message.NetMessage;
 
 public class Main2 {
 

@@ -1,5 +1,5 @@
 package it.unimib.disco.tests;
-import it.unimib.disco.net.JsonSerializationPolicy;
+import it.unimib.disco.net.serialization.JsonSerializationPolicy;
 
 public class Main {
 

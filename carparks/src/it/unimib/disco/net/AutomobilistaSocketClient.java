@@ -2,25 +2,26 @@ package it.unimib.disco.net;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Scanner;
 import java.util.function.Consumer;
 
 import it.unimib.disco.domain.Parcheggio;
+import it.unimib.disco.net.message.ClientNetMessage;
 import it.unimib.disco.net.message.NetMessageType;
-import it.unimib.disco.net.message.ParcheggioNetMessage;
 import it.unimib.disco.net.serialization.ISerializationPolicy;
 
-public class ParcheggioSocketClient extends SocketClientBase {
+public class AutomobilistaSocketClient extends SocketClientBase {
 
 	protected Scanner reader;
 	protected PrintWriter writer;
 	
-	public ParcheggioSocketClient() {
+	public AutomobilistaSocketClient() {
 		
 		super();
 	}
 	
-	public ParcheggioSocketClient(ISerializationPolicy serializationPolicy) {
+	public AutomobilistaSocketClient(ISerializationPolicy serializationPolicy) {
 		
 		super(serializationPolicy);
 	}
@@ -53,9 +54,26 @@ public class ParcheggioSocketClient extends SocketClientBase {
 		writer.println(new String(serializationPolicy.serialize(obj)));
 	}
 	
-	public void sendSnapshot(Parcheggio.Snapshot snapshot) throws IOException {
+	public List<Parcheggio.Snapshot> getParcheggioSnapshots() throws IOException, ClassNotFoundException {
 		
-		writeObject(new ParcheggioNetMessage(NetMessageType.SNAPSHOT_UPDATE, snapshot));
+		writeObject(new ClientNetMessage(NetMessageType.GET_AVAILABLE_SNAPSHOTS));
+		ClientNetMessage response = (ClientNetMessage) readObject(ClientNetMessage.class);
+		
+		return response.getSnapshots();
+	}
+	
+	public boolean reserveTimeSlot(Parcheggio.Snapshot snapshot, int timeSlot) throws IOException, ClassNotFoundException {
+		
+		boolean success;
+		writeObject(new ClientNetMessage(NetMessageType.RESERVE_TIME_SLOT,
+											snapshot,
+											timeSlot));
+		
+		ClientNetMessage response = (ClientNetMessage) readObject(ClientNetMessage.class);
+		
+		success = response.getSlot() == timeSlot ? true : false;
+		
+		return success;
 	}
 	
 }

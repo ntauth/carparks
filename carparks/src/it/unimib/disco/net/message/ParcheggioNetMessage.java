@@ -1,6 +1,7 @@
-package it.unimib.disco.net;
+package it.unimib.disco.net.message;
 
 import it.unimib.disco.domain.Parcheggio.Snapshot;
+import it.unimib.disco.domain.Ticket;
 
 /**
  * Communication class for client and server.
@@ -24,6 +25,14 @@ public class ParcheggioNetMessage extends NetMessage{
 								Snapshot parking) 
 	{
 		super(type);
+		this.parking = parking;
+	}
+	
+	public ParcheggioNetMessage(NetMessageType type, 
+								Snapshot parking,
+								int timeSlot) 
+	{
+		super(type, timeSlot);
 		this.parking = parking;
 	}
 	

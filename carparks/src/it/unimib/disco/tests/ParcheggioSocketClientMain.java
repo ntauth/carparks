@@ -47,19 +47,23 @@ public class ParcheggioSocketClientMain implements Runnable {
 	
 	public static void main(String[] args) {
 		
+		//Refactor
 		int noOfParcheggi = DEFAULT_NO_OF_PARCHEGGI;
+		String ip;
+		int port;
 		
-		if (args.length > 0)
-			noOfParcheggi = Integer.parseInt(args[0]);
-		
-		String ip = DEFAULT_PLATFORM_IP;
-		int port = DEFAULT_PLATFORM_PORT;
-		
-		if (args.length > 2) {
-			
-			ip = args[1];
-			port = Integer.parseInt(args[2]);
+		if (args.length > 1)
+		{
+			ip = args[0];
+			port = Integer.parseInt(args[1]);
 		}
+		else
+		{
+			ip = DEFAULT_PLATFORM_IP;
+			port = DEFAULT_PLATFORM_PORT;
+		}
+		if(args.length > 2)
+			noOfParcheggi = Integer.parseInt(args[2]);
 		
 		new ParcheggioSocketClientMain(ip, port, noOfParcheggi).run();
 	}

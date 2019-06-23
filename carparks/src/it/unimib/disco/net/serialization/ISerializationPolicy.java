@@ -1,4 +1,4 @@
-package it.unimib.disco.net;
+package it.unimib.disco.net.serialization;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;

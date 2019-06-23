@@ -20,6 +20,12 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import it.unimib.disco.domain.Parcheggio.Snapshot;
+import it.unimib.disco.net.message.ClientNetMessage;
+import it.unimib.disco.net.message.NetMessage;
+import it.unimib.disco.net.message.NetMessageType;
+import it.unimib.disco.net.message.ParcheggioNetMessage;
+import it.unimib.disco.net.serialization.ISerializationPolicy;
+import it.unimib.disco.net.serialization.JsonSerializationPolicy;
 
 
 public class SocketServer implements Callable<Void> {
@@ -31,6 +37,7 @@ public class SocketServer implements Callable<Void> {
 	protected Lock clientSocketsLock;
 	protected AtomicBoolean abortListenLoop;
 	protected Map<Integer, Snapshot> snapshots;
+	protected Map<Integer, Socket> parcheggioSocketMap;
 	
 	public SocketServer(int port) throws IOException {
 		
@@ -41,6 +48,7 @@ public class SocketServer implements Callable<Void> {
 		clientSocketsLock = new ReentrantLock();
 		abortListenLoop = new AtomicBoolean(false);
 		snapshots = new HashMap<Integer, Snapshot>();
+		parcheggioSocketMap = new HashMap<Integer, Socket>();
 	}
 
 	@Override
@@ -91,7 +99,7 @@ public class SocketServer implements Callable<Void> {
 				if (message instanceof ClientNetMessage)
 					response = processClientMessage((ClientNetMessage) message);
 				else if (message instanceof ParcheggioNetMessage)
-					response = processParcheggioMessage((ParcheggioNetMessage) message);
+					response = processParcheggioMessage((ParcheggioNetMessage) message, client);
 				
 				String jsonString = new String(policy.serialize(response));
 				out.println(jsonString);
@@ -124,29 +132,29 @@ public class SocketServer implements Callable<Void> {
 	 * @param request Client request.
 	 * @return Response of the processed request.
 	 */
-	private ClientNetMessage processClientMessage(ClientNetMessage request)
+	private ClientNetMessage processClientMessage(ClientNetMessage request) throws Exception
 	{
 		ClientNetMessage response = null;
 		NetMessageType messageType = request.getType();
 		
 		switch (messageType)
 		{
-			case AVAILABLE:
+			case GET_AVAILABLE_SNAPSHOTS:
 				List<Snapshot> freeParking = snapshots.values().stream()
 												.filter(s -> s.getFreeParkingSlots() > 0)
 												.collect(Collectors.toList());
-				response = new ClientNetMessage(NetMessageType.AVAILABLE, 
+				response = new ClientNetMessage(NetMessageType.GET_AVAILABLE_SNAPSHOTS, 
 												freeParking);
 				break;
-			case BOOK:
-				// Book specified parking
+			case RESERVE_TIME_SLOT:
+				response = reserveTimeSlot(request.getSelectedSnapshot(), request.getSlot());
 			default:
 				break;
 		}
 		return response;
 	}
 	
-	private ParcheggioNetMessage processParcheggioMessage(ParcheggioNetMessage message)
+	private ParcheggioNetMessage processParcheggioMessage(ParcheggioNetMessage message, Socket client)
 	{
 		ParcheggioNetMessage response = null;
 		NetMessageType messageType = message.getType();
@@ -156,13 +164,27 @@ public class SocketServer implements Callable<Void> {
 			case SNAPSHOT_UPDATE:
 				Snapshot messageSnapshot = message.getParking();
 				this.snapshots.put(messageSnapshot.getParcheggioId(), messageSnapshot);
-				System.out.printf("Updated %s, to %d spots\n",
-										messageSnapshot.getParcheggioId(),
-										messageSnapshot.getFreeParkingSlots());
+				this.parcheggioSocketMap.put(messageSnapshot.getParcheggioId(), client);
+				
 				break;
 			default:
 				break;
 		}
+		return response;
+	}
+	
+	private ClientNetMessage reserveTimeSlot(Snapshot toReserve, int timeSlot) throws Exception
+	{
+		ClientNetMessage response = null;
+		ParcheggioNetMessage booking = new ParcheggioNetMessage(NetMessageType.RESERVE_TIME_SLOT, 
+																toReserve,
+																timeSlot);
+		Socket toBookParking = parcheggioSocketMap.get(toReserve.getParcheggioId());
+		Scanner s = new Scanner(toBookParking.getInputStream());
+		PrintWriter pw = new PrintWriter(toBookParking.getOutputStream());
+		pw.println(new String(this.policy.serialize(booking)));
+		//Pericolo
+		response = (ClientNetMessage) this.policy.deserialize(s.nextLine().getBytes(), NetMessage.class);
 		return response;
 	}
 	

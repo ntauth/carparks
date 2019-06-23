@@ -1,6 +1,7 @@
 package it.unimib.disco.domain;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -9,14 +10,17 @@ import java.util.Observable;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import it.unimib.disco.net.JsonSerializationPolicy;
 import it.unimib.disco.net.ParcheggioSocketClient;
+import it.unimib.disco.net.message.ParcheggioNetMessage;
+import it.unimib.disco.net.serialization.JsonSerializationPolicy;
 
 public class Parcheggio extends Observable implements Callable<Void> {
 	
@@ -45,6 +49,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected ConcurrentLinkedQueue<RestituzioneRequest> restituzioneRequests;
 	
 	protected ParcheggioSocketClient socket;
+	protected AtomicBoolean processingNextNetMessage;
 	
 	public Parcheggio(int freeParkingSlots, List<Parcheggiatore> valets) {
 		
@@ -82,6 +87,49 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		this.restituzioneRequests = new ConcurrentLinkedQueue<>();
 		
 		this.socket = new ParcheggioSocketClient(new JsonSerializationPolicy());
+		this.processingNextNetMessage = new AtomicBoolean(false);
+	}
+	
+	protected void processNextNetMessageAsync() {
+		
+		if (!processingNextNetMessage.get()) {
+			
+			CompletableFuture<Object> promise = socket.readObjectAsync(ParcheggioNetMessage.class);
+			
+			// @todo handle the exceptional case
+			promise.thenApply(msg -> {
+				
+				Exception ex = null;
+				
+				try {
+					processNextNetMessageImpl((ParcheggioNetMessage) msg);
+				}
+				catch (IOException e) {
+					ex = e;
+				}
+				
+				return ex;
+			})
+			.thenRun(() -> processingNextNetMessage.set(false));
+		}
+	}
+	
+	protected void processNextNetMessageImpl(ParcheggioNetMessage msg) throws IOException {
+		
+		switch (msg.getType()) {
+				
+			case RESERVE_TIME_SLOT:
+				boolean reserved = onReserve(msg.getSlot());
+				
+				if (!reserved)
+					msg.setSlot(-1);
+				
+				socket.writeObject(msg);
+				break;
+				
+			default:
+				break;
+		}
 	}
 	
 	public void connectToPlatform(String ip, int port) {
@@ -119,6 +167,8 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected void requestWatchdog() throws InterruptedException {
 		
 		while (true) {
+			
+			processNextNetMessageAsync();
 			
 			synchronized (requestMonitor) {
 				
@@ -231,6 +281,36 @@ public class Parcheggio extends Observable implements Callable<Void> {
 				valetsSemaphore.release();
 			//endregion
 		}
+	}
+	
+	protected boolean onReserve(int timeSlot) {
+		
+		boolean reserved = false;
+		
+		synchronized (freeReservationTimeSlots) {
+			
+			if (freeReservationTimeSlots.containsKey(timeSlot)) {
+				
+				if (freeReservationTimeSlots.get(timeSlot) == true) {
+					
+					LocalDateTime dt = LocalDateTime.now();
+					int fixup = dt.getMinute() >= 30 ? 1 : 0;
+					int currentTimeSlot = 1 + (freeReservationTimeSlots.size() / 24) * (dt.getHour()) + fixup;
+					
+					for (int i = currentTimeSlot; i != timeSlot; i = (i + 1) % freeReservationTimeSlots.size()) {
+					
+						if (i == 0)
+							i++;
+						
+						freeReservationTimeSlots.put(i, false);
+					}
+					
+					reserved = true;
+				}
+			}
+		}
+		
+		return reserved;
 	}
 	
 	protected void onParcheggioUpdate() {
