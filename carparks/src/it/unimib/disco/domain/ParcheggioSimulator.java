@@ -12,10 +12,6 @@ import java.util.logging.Logger;
 import it.unimib.disco.utils.Chrono;
 import it.unimib.disco.utils.PoissonProcess;
 
-/**
- * @todo Proper simulation time scaling
- * 
- */
 public final class ParcheggioSimulator implements Callable<Void> {
 
 	private final static Logger _logger;

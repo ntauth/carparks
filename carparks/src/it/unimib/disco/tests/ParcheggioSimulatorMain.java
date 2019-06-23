@@ -12,10 +12,10 @@ public class ParcheggioSimulatorMain {
 	
 	public static void main(String[] args) {
 	
-		ParcheggioSimulator ps = new ParcheggioSimulator(5, 10, 5);
-		
 		// Run one simulation where 1 minute = 1 second and approx. 3 cars/second request to park,
 		// 10 parking slots, 5 valets
+		ParcheggioSimulator ps = new ParcheggioSimulator(1, 10, 5);
+
 		Executors.newFixedThreadPool(1).submit(ps);
 		
 		// Connect to platform
