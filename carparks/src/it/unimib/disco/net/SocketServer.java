@@ -95,7 +95,7 @@ public class SocketServer implements Callable<Void> {
 				NetMessage message = 
 						(NetMessage) policy.deserialize(lineIn.getBytes(), 
 														NetMessage.class);
-				
+				System.out.println("Message received, type: " + message.getType());
 				NetMessage response = null;
 				if (message instanceof ClientNetMessage)
 					response = processClientMessage((ClientNetMessage) message);
@@ -190,7 +190,8 @@ public class SocketServer implements Callable<Void> {
 		System.out.println("Waiting for response...");
 		String resp = s.nextLine();
 		System.out.println("Response received!");
-		response = (ClientNetMessage) this.policy.deserialize(resp.getBytes(), NetMessage.class);
+		ParcheggioNetMessage msg = (ParcheggioNetMessage) this.policy.deserialize(resp.getBytes(), ParcheggioNetMessage.class);
+		response = new ClientNetMessage(msg.getType(), msg.getTicket(), msg.getSlot());
 		s.close();
 		return response;
 	}

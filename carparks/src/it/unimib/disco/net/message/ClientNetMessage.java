@@ -2,6 +2,7 @@ package it.unimib.disco.net.message;
 
 import java.util.List;
 
+import it.unimib.disco.domain.Ticket;
 import it.unimib.disco.domain.Parcheggio.Snapshot;
 /**
  * This class allows communication between clients the server.
@@ -29,6 +30,11 @@ public class ClientNetMessage extends NetMessage {
 	{
 		super(type, slot);
 		selectedSnapshot = toBook;
+	}
+	
+	public ClientNetMessage(NetMessageType type, Ticket ticket, int slot)
+	{
+		super(type, ticket, slot);
 	}
 	
 	public ClientNetMessage(NetMessageType type, List<Snapshot> snapshots, int slot)

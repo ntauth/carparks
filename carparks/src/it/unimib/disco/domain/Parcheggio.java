@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import it.unimib.disco.net.ParcheggioSocketClient;
+import it.unimib.disco.net.message.NetMessageType;
 import it.unimib.disco.net.message.ParcheggioNetMessage;
 import it.unimib.disco.net.serialization.JsonSerializationPolicy;
 
@@ -109,6 +110,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 					msg.setSlot(-1);
 				
 				socket.sendSnapshot(new Snapshot(this));
+				socket.writeObject(new ParcheggioNetMessage(NetMessageType.RESERVE_TIME_SLOT, null));
 				System.out.println("Reserved: " + reserved);
 				break;
 				

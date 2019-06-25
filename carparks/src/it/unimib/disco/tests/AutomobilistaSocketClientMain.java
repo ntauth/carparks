@@ -103,6 +103,8 @@ public class AutomobilistaSocketClientMain implements Runnable{
 					{
 						System.out.println("Reservation successfull!");
 					}
+					System.out.println("Press any button to continue...");
+					in.nextByte();
 				} catch (ClassNotFoundException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
