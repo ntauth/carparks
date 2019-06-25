@@ -39,23 +39,12 @@ public class ParcheggioNetMessage extends NetMessage{
 	}
 	
 	/**
-	 * @return the type
-	 */
-	public NetMessageType getType() {
-		return type;
-	}
-	/**
 	 * @return the parking
 	 */
 	public Snapshot getParking() {
 		return parking;
 	}
-	/**
-	 * @param type the type to set
-	 */
-	public void setType(NetMessageType type) {
-		this.type = type;
-	}
+
 	/**
 	 * @param parking the parking to set
 	 */

@@ -94,6 +94,7 @@ public class AutomobilistaSocketClientMain implements Runnable{
 					int parking = Integer.parseInt(in.nextLine());
 					System.out.printf("Enter slot\n", snapshots.size());
 					int slot = Integer.parseInt(in.nextLine());
+					System.out.println("Sending request to " + parking + ", slot: " + slot);
 					boolean result = client.reserveTimeSlot(snapshots.get(parking), slot);
 					if(!result)
 					{
