@@ -30,11 +30,14 @@ public class NetMessage
 	
 	public NetMessage(NetMessageType type, int slot)
 	{
+		this.slot = slot;
 		this.type = type;
 	}
 	
 	public NetMessage(NetMessageType type, Ticket ticket, int slot)
 	{
+		this.ticket = ticket;
+		this.slot = slot;
 		this.type = type;
 	}
 	

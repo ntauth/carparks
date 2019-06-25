@@ -37,6 +37,12 @@ public class ClientNetMessage extends NetMessage {
 		super(type, ticket, slot);
 	}
 	
+	public ClientNetMessage(NetMessageType type, Ticket ticket, int slot, Snapshot selectedSnapshot)
+	{
+		super(type, ticket, slot);
+		this.selectedSnapshot = selectedSnapshot;
+	}
+	
 	public ClientNetMessage(NetMessageType type, List<Snapshot> snapshots, int slot)
 	{
 		super(type, slot);

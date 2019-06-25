@@ -186,7 +186,7 @@ public class SocketServer implements Callable<Void> {
 		PrintWriter pw = new PrintWriter(toBookParking.getOutputStream(), true);
 		String toSend =  new String(this.policy.serialize(booking));
 		pw.println(toSend);
-		System.out.println("Request sent: " + toSend);
+		System.out.println("Request sent: " + booking.getParking().getParcheggioId() + " " + booking.getSlot());
 		System.out.println("Waiting for response...");
 		String resp = s.nextLine();
 		System.out.println("Response received!");

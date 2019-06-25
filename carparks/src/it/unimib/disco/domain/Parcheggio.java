@@ -110,7 +110,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 					msg.setSlot(-1);
 				
 				socket.sendSnapshot(new Snapshot(this));
-				socket.writeObject(new ParcheggioNetMessage(NetMessageType.RESERVE_TIME_SLOT, null));
+				socket.writeObject(msg);
 				System.out.println("Reserved: " + reserved);
 				break;
 				

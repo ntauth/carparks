@@ -31,6 +31,13 @@ public class ParcheggioNetMessage extends NetMessage{
 	}
 	
 	public ParcheggioNetMessage(NetMessageType type, 
+								Ticket ticket,
+								int timeSlot)
+	{
+		super(type, ticket, timeSlot);
+	}
+	
+	public ParcheggioNetMessage(NetMessageType type, 
 								Snapshot parking,
 								int timeSlot) 
 	{

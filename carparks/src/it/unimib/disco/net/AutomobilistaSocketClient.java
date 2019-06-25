@@ -68,12 +68,13 @@ public class AutomobilistaSocketClient extends SocketClientBase {
 	public boolean reserveTimeSlot(Parcheggio.Snapshot snapshot, int timeSlot) throws IOException, ClassNotFoundException {
 		
 		boolean success;
-		writeObject(new ClientNetMessage(NetMessageType.RESERVE_TIME_SLOT,
-											snapshot,
-											timeSlot));
-		
+		ClientNetMessage toSend = new ClientNetMessage(NetMessageType.RESERVE_TIME_SLOT,
+				snapshot,
+				timeSlot);
+		writeObject(toSend);
 		ClientNetMessage response = (ClientNetMessage) readObject(ClientNetMessage.class);
 		
+		System.out.println("Response: " + response.getSlot());
 		success = response.getSlot() == timeSlot ? true : false;
 		
 		return success;
