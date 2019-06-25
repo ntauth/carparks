@@ -78,24 +78,24 @@ public class ParcheggioSocketClientMain implements Runnable {
 			executor.submit(() -> {
 				
 					try {
+						
+						pk.connectToPlatform(platformIp, platformPort);
 						pk.call();
 					}
 					catch (Exception e) {
-						
+						e.printStackTrace();
 					}
 					finally {
 						barrier.countDown();
 					}
 				});
-			
-			pk.connectToPlatform(platformIp, platformPort);
 		}
 		
 		try {
 			barrier.await();
 		}
 		catch (InterruptedException e) {
-
+			e.printStackTrace();
 		}
 	}
 

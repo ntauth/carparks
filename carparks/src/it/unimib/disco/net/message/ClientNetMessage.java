@@ -3,9 +3,15 @@ package it.unimib.disco.net.message;
 import java.util.List;
 
 import it.unimib.disco.domain.Parcheggio.Snapshot;
-
+/**
+ * This class allows communication between clients the server.
+ * 
+ * @author Farjad
+ *
+ */
 public class ClientNetMessage extends NetMessage {
-
+	
+	//
 	private List<Snapshot> snapshots = null;
 	private Snapshot selectedSnapshot = null;
 	

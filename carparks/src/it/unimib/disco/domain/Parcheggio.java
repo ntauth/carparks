@@ -12,6 +12,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -37,7 +38,6 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected Semaphore freeParkingSlotsSemaphore;
 	protected long fpsSemAcquireTimeout;
 	
-	protected ExecutorService valetExecutorService;
 	protected Queue<Parcheggiatore> valets;
 	protected Semaphore valetsSemaphore;
 	protected long parkSemAcquireTimeout;
@@ -48,9 +48,9 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected ConcurrentLinkedQueue<RitiroRequest> ritiroRequests;
 	protected ConcurrentLinkedQueue<RestituzioneRequest> restituzioneRequests;
 	
+	protected ExecutorService threadPool;
 	protected ParcheggioSocketClient socket;
-	protected AtomicBoolean processingNextNetMessage;
-	
+
 	public Parcheggio(int freeParkingSlots, List<Parcheggiatore> valets) {
 		
 		this(UUID.randomUUID().hashCode(), "", freeParkingSlots, valets);
@@ -74,8 +74,6 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		this.valets = new LinkedList<>();
 		this.parkSemAcquireTimeout = VALETS_SEMAPHORE_ACQUIRE_TIMEOUT;
 		
-		this.valetExecutorService = Executors.newFixedThreadPool(valets.size());
-		
 		// Inject the valets dependency
 		for (Parcheggiatore v : valets)
 			this.valets.add(v);
@@ -86,35 +84,21 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		this.ritiroRequests = new ConcurrentLinkedQueue<>();
 		this.restituzioneRequests = new ConcurrentLinkedQueue<>();
 		
+		// Thread pool for valets and net watchdog
+		this.threadPool = Executors.newFixedThreadPool(valets.size() + 1);
 		this.socket = new ParcheggioSocketClient(new JsonSerializationPolicy());
-		this.processingNextNetMessage = new AtomicBoolean(false);
 	}
 	
-	protected void processNextNetMessageAsync() {
+	protected CompletableFuture<Object> getNextNetMessageAsync() {
 		
-		if (!processingNextNetMessage.get()) {
-			
-			CompletableFuture<Object> promise = socket.readObjectAsync(ParcheggioNetMessage.class);
-			
-			// @todo handle the exceptional case
-			promise.thenApply(msg -> {
-				
-				Exception ex = null;
-				
-				try {
-					processNextNetMessageImpl((ParcheggioNetMessage) msg);
-				}
-				catch (IOException e) {
-					ex = e;
-				}
-				
-				return ex;
-			})
-			.thenRun(() -> processingNextNetMessage.set(false));
-		}
+		CompletableFuture<Object> message = socket.readObjectAsync(ParcheggioNetMessage.class);
+		
+		return message;
 	}
 	
-	protected void processNextNetMessageImpl(ParcheggioNetMessage msg) throws IOException {
+	protected void processNextNetMessage(ParcheggioNetMessage msg) throws IOException {
+		
+		System.out.println(msg.getType());
 		
 		switch (msg.getType()) {
 				
@@ -124,7 +108,8 @@ public class Parcheggio extends Observable implements Callable<Void> {
 				if (!reserved)
 					msg.setSlot(-1);
 				
-				socket.writeObject(msg);
+				socket.sendSnapshot(new Snapshot(this));
+				System.out.println("Reserved: " + reserved);
 				break;
 				
 			default:
@@ -143,7 +128,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 				socket.sendSnapshot((Parcheggio.Snapshot) s);
 			}
 			catch (Exception e) {
-				
+				e.printStackTrace();
 			}
 		});
 		
@@ -156,19 +141,40 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		
 		// Launch valets
 		for (Parcheggiatore v : valets)
-			valetExecutorService.submit(v);
+			threadPool.submit(v);
 		
-		// Launch the watchdog
+		// Launch the net watchdog
+		threadPool.submit(() -> netRequestWatchdog());
+		
+		// Launch the local watchdog
 		requestWatchdog();
 		
 		return null;
 	}
 	
-	protected void requestWatchdog() throws InterruptedException {
-		
+	protected void netRequestWatchdog() {
+	
 		while (true) {
 			
-			processNextNetMessageAsync();
+			CompletableFuture<Object> message_ = getNextNetMessageAsync();
+			
+			try {
+				ParcheggioNetMessage message = (ParcheggioNetMessage) message_.get();
+				
+				if (message != null)
+					processNextNetMessage(message);
+			}
+			catch (Exception e) {
+				
+				e.printStackTrace();
+				break;
+			}
+		}
+	}
+	
+	protected void requestWatchdog() throws InterruptedException {
+		
+		while (true) {		
 			
 			synchronized (requestMonitor) {
 				

@@ -97,7 +97,7 @@ public final class ParcheggioSimulator implements Callable<Void> {
 					owner.waitOnTicket();
 					TimeUnit.MILLISECONDS.sleep((long) (1000 / carParkRate)); 
 				}
-				catch (InterruptedException e) { }
+				catch (InterruptedException e) { e.printStackTrace(); }
 				
 				owner.preleva();
 			});

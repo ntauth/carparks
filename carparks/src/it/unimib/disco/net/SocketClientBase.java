@@ -62,12 +62,16 @@ public abstract class SocketClientBase extends Observable implements ISocketClie
 		
 		CompletableFuture<Object> promise = CompletableFuture.supplyAsync(() -> {
 			
+			Object result;
+			
 			try {
-				return readObject(archetype);
+				result = readObject(archetype);
 			}
 			catch (Exception e) {
-				return e;
+				result = null;
 			}
+			
+			return result;
 		});
 		
 		return promise;

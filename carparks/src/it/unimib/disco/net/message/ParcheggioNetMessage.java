@@ -11,6 +11,8 @@ import it.unimib.disco.domain.Ticket;
  */
 public class ParcheggioNetMessage extends NetMessage{
 	
+	public static final ParcheggioNetMessage EMPTY = new ParcheggioNetMessage(NetMessageType.NONE, null);
+	
 	private Snapshot parking; /* In caso di prenotazione per
 													un parcheggio, quello da 
 													prenotare sarà il primo

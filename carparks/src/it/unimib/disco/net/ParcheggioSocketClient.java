@@ -34,6 +34,9 @@ public class ParcheggioSocketClient extends SocketClientBase {
 			
 			reader = new Scanner(istream);
 			writer = new PrintWriter(ostream, true);
+			
+			// onReady
+			onConnectStatusChanged(new SocketClientConnectionEventArgs(SocketClientConnectionStatus.READY));
 		}
 	}
 	

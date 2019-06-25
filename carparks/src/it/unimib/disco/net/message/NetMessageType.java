@@ -2,6 +2,8 @@ package it.unimib.disco.net.message;
 
 public enum NetMessageType {
 	
+	NONE,
+	
 	// @see Parcheggio Messages
 	SNAPSHOT_UPDATE,
 	

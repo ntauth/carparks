@@ -70,6 +70,7 @@ public class AutomobilistaSocketClientMain implements Runnable{
 					break;
 			if (input.equals("1"))
 			{
+				cls();
 				try {
 					List<Snapshot> snapshots = client.getParcheggioSnapshots();
 					for (int i = 0; i < snapshots.size(); i++)
@@ -81,14 +82,14 @@ public class AutomobilistaSocketClientMain implements Runnable{
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				cls();
 			}
 			if (input.equals("2"))
 			{
+				cls();
 				try {
 					List<Snapshot> snapshots = client.getParcheggioSnapshots();
 					for (int i = 0; i < snapshots.size(); i++)
-						System.out.printf("[%d] %s", i, snapshots.get(i).getParcheggioId());
+						System.out.printf("[%d] %s\n", i, snapshots.get(i).getParcheggioId());
 					System.out.printf("Enter parking to book. (0-%d)\n", snapshots.size());
 					int parking = Integer.parseInt(in.nextLine());
 					System.out.printf("Enter slot\n", snapshots.size());
@@ -109,8 +110,8 @@ public class AutomobilistaSocketClientMain implements Runnable{
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				cls();
 			}
+			cls();
 		}
 	}
 	

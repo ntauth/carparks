@@ -5,5 +5,6 @@ public enum SocketClientConnectionStatus {
 	ERROR,
 	CONNECTING,
 	CONNECTED,
+	READY,
 	CLOSED
 }

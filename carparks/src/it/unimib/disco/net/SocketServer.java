@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Scanner;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -109,7 +110,8 @@ public class SocketServer implements Callable<Void> {
 		catch (Exception e) {
 			// Problema con il client, termina la connessione e basta.
 			// Chiudere gli stream
-			e.printStackTrace();
+			if (!(e instanceof NoSuchElementException))
+				e.printStackTrace();
 			return;
 		}
 		finally {
@@ -156,16 +158,16 @@ public class SocketServer implements Callable<Void> {
 	
 	private ParcheggioNetMessage processParcheggioMessage(ParcheggioNetMessage message, Socket client)
 	{
-		ParcheggioNetMessage response = null;
+		ParcheggioNetMessage response = ParcheggioNetMessage.EMPTY;
 		NetMessageType messageType = message.getType();
 		
 		switch (messageType)
 		{
 			case SNAPSHOT_UPDATE:
+				System.out.println("Snapshot update!");
 				Snapshot messageSnapshot = message.getParking();
 				this.snapshots.put(messageSnapshot.getParcheggioId(), messageSnapshot);
 				this.parcheggioSocketMap.put(messageSnapshot.getParcheggioId(), client);
-				
 				break;
 			default:
 				break;
@@ -181,10 +183,15 @@ public class SocketServer implements Callable<Void> {
 																timeSlot);
 		Socket toBookParking = parcheggioSocketMap.get(toReserve.getParcheggioId());
 		Scanner s = new Scanner(toBookParking.getInputStream());
-		PrintWriter pw = new PrintWriter(toBookParking.getOutputStream());
-		pw.println(new String(this.policy.serialize(booking)));
-		//Pericolo
-		response = (ClientNetMessage) this.policy.deserialize(s.nextLine().getBytes(), NetMessage.class);
+		PrintWriter pw = new PrintWriter(toBookParking.getOutputStream(), true);
+		String toSend =  new String(this.policy.serialize(booking));
+		pw.println(toSend);
+		System.out.println("Request sent: " + toSend);
+		System.out.println("Waiting for response...");
+		String resp = s.nextLine();
+		System.out.println("Response received!");
+		response = (ClientNetMessage) this.policy.deserialize(resp.getBytes(), NetMessage.class);
+		s.close();
 		return response;
 	}
 	
