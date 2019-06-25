@@ -101,7 +101,7 @@ public class SocketServer implements Callable<Void> {
 					response = processClientMessage((ClientNetMessage) message);
 				else if (message instanceof ParcheggioNetMessage)
 					response = processParcheggioMessage((ParcheggioNetMessage) message, client);
-				
+
 				String jsonString = new String(policy.serialize(response));
 				out.println(jsonString);
 				out.flush();

@@ -109,7 +109,6 @@ public class Parcheggio extends Observable implements Callable<Void> {
 				if (!reserved)
 					msg.setSlot(-1);
 				
-				socket.sendSnapshot(new Snapshot(this));
 				socket.writeObject(msg);
 				System.out.println("Reserved: " + reserved);
 				break;
@@ -158,10 +157,9 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	
 		while (true) {
 			
-			CompletableFuture<Object> message_ = getNextNetMessageAsync();
-			
 			try {
-				ParcheggioNetMessage message = (ParcheggioNetMessage) message_.get();
+				Object message_ = socket.readObject(ParcheggioNetMessage.class);
+				ParcheggioNetMessage message = (ParcheggioNetMessage) message_;
 				
 				if (message != null)
 					processNextNetMessage(message);
