@@ -44,7 +44,6 @@ public class ParcheggioSocketClient extends SocketClientBase {
 	public Object readObject(Class<?> archetype) throws IOException, ClassNotFoundException {
 		
 		assert reader != null;
-		
 		return serializationPolicy.deserialize(reader.nextLine().getBytes(), archetype);
 	}
 	

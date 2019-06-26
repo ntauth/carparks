@@ -1,8 +1,6 @@
 package it.unimib.disco.net;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -12,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,6 +38,7 @@ public class SocketServer implements Callable<Void> {
 	protected AtomicBoolean abortListenLoop;
 	protected Map<Integer, Snapshot> snapshots;
 	protected Map<Integer, Socket> parcheggioSocketMap;
+	protected Map<String, Socket> pendingRequests;
 	
 	public SocketServer(int port) throws IOException {
 		
@@ -50,6 +50,7 @@ public class SocketServer implements Callable<Void> {
 		abortListenLoop = new AtomicBoolean(false);
 		snapshots = new HashMap<Integer, Snapshot>();
 		parcheggioSocketMap = new HashMap<Integer, Socket>();
+		pendingRequests = new HashMap<String, Socket>();
 	}
 
 	@Override
@@ -58,7 +59,7 @@ public class SocketServer implements Callable<Void> {
 		while (abortListenLoop.get() != true) {
 			
 			Socket clientSocket = serverSocket.accept();
-			
+			System.out.println("Nuovo client");
 			clientSocketsLock.lock();
 			clientSockets.add(clientSocket);
 			clientSocketsLock.unlock();
@@ -75,7 +76,7 @@ public class SocketServer implements Callable<Void> {
 	 * @param client The client to handle
 	 */
 	protected void handleClient(Socket client) {
-		
+		System.out.println("Handle client");
 		//Per la lettura e scrittura client/server
 		PrintWriter out = null;
 		Scanner in = null;
@@ -95,16 +96,11 @@ public class SocketServer implements Callable<Void> {
 				NetMessage message = 
 						(NetMessage) policy.deserialize(lineIn.getBytes(), 
 														NetMessage.class);
-				System.out.println("Message received, type: " + message.getType());
-				NetMessage response = null;
+				System.out.println("["+this.hashCode()+"] Message received, type: " + message.getType());
 				if (message instanceof ClientNetMessage)
-					response = processClientMessage((ClientNetMessage) message);
+					processClientMessage((ClientNetMessage) message, out, client);
 				else if (message instanceof ParcheggioNetMessage)
-					response = processParcheggioMessage((ParcheggioNetMessage) message, client);
-
-				String jsonString = new String(policy.serialize(response));
-				out.println(jsonString);
-				out.flush();
+					processParcheggioMessage((ParcheggioNetMessage) message, client);
 			}
 		}
 		catch (Exception e) {
@@ -134,7 +130,7 @@ public class SocketServer implements Callable<Void> {
 	 * @param request Client request.
 	 * @return Response of the processed request.
 	 */
-	private ClientNetMessage processClientMessage(ClientNetMessage request) throws Exception
+	private void processClientMessage(ClientNetMessage request, PrintWriter out, Socket client) throws Exception
 	{
 		ClientNetMessage response = null;
 		NetMessageType messageType = request.getType();
@@ -149,17 +145,23 @@ public class SocketServer implements Callable<Void> {
 												freeParking);
 				break;
 			case RESERVE_TIME_SLOT:
-				response = reserveTimeSlot(request.getSelectedSnapshot(), request.getSlot());
+				reserveTimeSlot(request.getSelectedSnapshot(), request.getSlot(), client);
 			default:
 				break;
 		}
-		return response;
+		if(response != null)
+		{
+			String jsonString = new String(policy.serialize(response));
+			out.println(jsonString);
+			out.flush();
+		}
 	}
 	
-	private ParcheggioNetMessage processParcheggioMessage(ParcheggioNetMessage message, Socket client)
+	private void processParcheggioMessage(ParcheggioNetMessage message, Socket client) throws Exception
 	{
-		ParcheggioNetMessage response = ParcheggioNetMessage.EMPTY;
+		ClientNetMessage response = null;
 		NetMessageType messageType = message.getType();
+		PrintWriter out = null;
 		
 		switch (messageType)
 		{
@@ -168,32 +170,33 @@ public class SocketServer implements Callable<Void> {
 				Snapshot messageSnapshot = message.getParking();
 				this.snapshots.put(messageSnapshot.getParcheggioId(), messageSnapshot);
 				this.parcheggioSocketMap.put(messageSnapshot.getParcheggioId(), client);
+				out = new PrintWriter(client.getOutputStream());
+				out.println(new String(this.policy.serialize(ParcheggioNetMessage.EMPTY)));
+				out.flush();
+				break;
+			case RESERVE_TIME_SLOT:
+				Socket requestingClient = this.pendingRequests.get(message.getTracer());
+				out = new PrintWriter(requestingClient.getOutputStream());
+				response = new ClientNetMessage(message.getType(), message.getTicket(), message.getSlot());
+				out.println(new String(this.policy.serialize(response)));
+				out.flush();
 				break;
 			default:
 				break;
 		}
-		return response;
 	}
 	
-	private ClientNetMessage reserveTimeSlot(Snapshot toReserve, int timeSlot) throws Exception
+	private void reserveTimeSlot(Snapshot toReserve, int timeSlot, Socket client) throws Exception
 	{
-		ClientNetMessage response = null;
 		ParcheggioNetMessage booking = new ParcheggioNetMessage(NetMessageType.RESERVE_TIME_SLOT, 
 																toReserve,
 																timeSlot);
 		Socket toBookParking = parcheggioSocketMap.get(toReserve.getParcheggioId());
-		Scanner s = new Scanner(toBookParking.getInputStream());
 		PrintWriter pw = new PrintWriter(toBookParking.getOutputStream(), true);
 		String toSend =  new String(this.policy.serialize(booking));
 		pw.println(toSend);
+		this.pendingRequests.put(booking.getTracer(), client);
 		System.out.println("Request sent: " + booking.getParking().getParcheggioId() + " " + booking.getSlot());
-		System.out.println("Waiting for response...");
-		String resp = s.nextLine();
-		System.out.println("Response received!");
-		ParcheggioNetMessage msg = (ParcheggioNetMessage) this.policy.deserialize(resp.getBytes(), ParcheggioNetMessage.class);
-		response = new ClientNetMessage(msg.getType(), msg.getTicket(), msg.getSlot());
-		s.close();
-		return response;
 	}
 	
 	/**

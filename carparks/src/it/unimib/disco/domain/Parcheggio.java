@@ -108,7 +108,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 				
 				if (!reserved)
 					msg.setSlot(-1);
-				
+				//socket.sendSnapshot(new Snapshot(this));
 				socket.writeObject(msg);
 				System.out.println("Reserved: " + reserved);
 				break;

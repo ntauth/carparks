@@ -1,6 +1,9 @@
 package it.unimib.disco.net.message;
 
 import it.unimib.disco.domain.Parcheggio.Snapshot;
+
+import java.util.UUID;
+
 import it.unimib.disco.domain.Ticket;
 
 /**
@@ -11,12 +14,15 @@ import it.unimib.disco.domain.Ticket;
  */
 public class ParcheggioNetMessage extends NetMessage{
 	
+	
 	public static final ParcheggioNetMessage EMPTY = new ParcheggioNetMessage(NetMessageType.NONE, null);
 	
 	private Snapshot parking; /* In caso di prenotazione per
 													un parcheggio, quello da 
 													prenotare sarà il primo
 													nella lista parking. */
+	
+	private String tracer;
 	
 	public ParcheggioNetMessage()
 	{
@@ -28,6 +34,7 @@ public class ParcheggioNetMessage extends NetMessage{
 	{
 		super(type);
 		this.parking = parking;
+		this.tracer = UUID.randomUUID().toString();
 	}
 	
 	public ParcheggioNetMessage(NetMessageType type, 
@@ -35,6 +42,7 @@ public class ParcheggioNetMessage extends NetMessage{
 								int timeSlot)
 	{
 		super(type, ticket, timeSlot);
+		this.tracer = UUID.randomUUID().toString();
 	}
 	
 	public ParcheggioNetMessage(NetMessageType type, 
@@ -43,6 +51,7 @@ public class ParcheggioNetMessage extends NetMessage{
 	{
 		super(type, timeSlot);
 		this.parking = parking;
+		this.tracer = UUID.randomUUID().toString();
 	}
 	
 	/**
@@ -59,5 +68,18 @@ public class ParcheggioNetMessage extends NetMessage{
 		this.parking = parking;
 	}
 
+	/**
+	 * @return the tracer
+	 */
+	public String getTracer() {
+		return tracer;
+	}
 
+	/**
+	 * @param tracer the tracer to set
+	 */
+	public void setTracer(String tracer) {
+		this.tracer = tracer;
+	}
+	
 }
