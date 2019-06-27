@@ -1,7 +1,6 @@
 package it.unimib.disco.domain;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -10,17 +9,13 @@ import java.util.Observable;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import it.unimib.disco.net.ParcheggioSocketClient;
-import it.unimib.disco.net.message.NetMessageType;
 import it.unimib.disco.net.message.ParcheggioNetMessage;
 import it.unimib.disco.net.serialization.JsonSerializationPolicy;
 
@@ -35,22 +30,23 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected String name;
 	
 	protected Map<Integer, Boolean> freeReservationTimeSlots;
-	
+
 	protected Semaphore freeParkingSlotsSemaphore;
-	protected long fpsSemAcquireTimeout;
+	protected long freeParkingSlotsSemaphoreAcquireTimeout;
 	
 	protected Queue<Parcheggiatore> valets;
 	protected Semaphore valetsSemaphore;
-	protected long parkSemAcquireTimeout;
+	protected long valetsSemaphoreAcquireTimeout;
 	
-	protected Map<Ticket, Automobile> ticketAutoMap;
+	protected Map<Ticket, Automobile> ticketAutomobileMap;
 	
-	protected Object requestMonitor;
+	protected Object requestsMonitor;
 	protected ConcurrentLinkedQueue<RitiroRequest> ritiroRequests;
+	protected ConcurrentLinkedQueue<RitiroWithTicketRequest> ritiroWithTicketRequests;
 	protected ConcurrentLinkedQueue<RestituzioneRequest> restituzioneRequests;
 	
-	protected ExecutorService threadPool;
-	protected ParcheggioSocketClient socket;
+	protected ExecutorService threadPoolService;
+	protected ParcheggioSocketClient platformSocket;
 
 	public Parcheggio(int freeParkingSlots, List<Parcheggiatore> valets) {
 		
@@ -68,49 +64,52 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		for (int i = 1; i <= RESERVATION_TIME_SLOT_COUNT; i++)
 			freeReservationTimeSlots.put(i, true);
 		
+		// Parking slots
 		this.freeParkingSlotsSemaphore = new Semaphore(freeParkingSlots, true);
-		this.fpsSemAcquireTimeout = PARKSLOT_SEMAPHORE_ACQUIRE_TIMEOUT;
+		this.freeParkingSlotsSemaphoreAcquireTimeout = PARKSLOT_SEMAPHORE_ACQUIRE_TIMEOUT;
 		
+		// Valets
 		this.valetsSemaphore = new Semaphore(valets.size(), true);
 		this.valets = new LinkedList<>();
-		this.parkSemAcquireTimeout = VALETS_SEMAPHORE_ACQUIRE_TIMEOUT;
+		this.valetsSemaphoreAcquireTimeout = VALETS_SEMAPHORE_ACQUIRE_TIMEOUT;
 		
 		// Inject the valets dependency
 		for (Parcheggiatore v : valets)
 			this.valets.add(v);
 		
-		this.ticketAutoMap = new HashMap<>();
+		this.ticketAutomobileMap = new HashMap<>();
 		
-		this.requestMonitor = new Object();
+		// Requests
+		this.requestsMonitor = new Object();
 		this.ritiroRequests = new ConcurrentLinkedQueue<>();
+		this.ritiroWithTicketRequests = new ConcurrentLinkedQueue<>();
 		this.restituzioneRequests = new ConcurrentLinkedQueue<>();
 		
 		// Thread pool for valets and net watchdog
-		this.threadPool = Executors.newFixedThreadPool(valets.size() + 1);
-		this.socket = new ParcheggioSocketClient(new JsonSerializationPolicy());
+		this.threadPoolService = Executors.newFixedThreadPool(valets.size() + 1);
+		this.platformSocket = new ParcheggioSocketClient(new JsonSerializationPolicy());
 	}
 	
-	protected CompletableFuture<Object> getNextNetMessageAsync() {
-		
-		CompletableFuture<Object> message = socket.readObjectAsync(ParcheggioNetMessage.class);
-		
-		return message;
-	}
-	
-	protected void processNextNetMessage(ParcheggioNetMessage msg) throws IOException {
-		
-		System.out.println(msg.getType());
+	/**
+	 * @brief Processes a @see NetMessage
+	 * 
+	 * @throws IOException
+	 */
+	protected void processNetMessage(ParcheggioNetMessage msg) throws IOException {
 		
 		switch (msg.getType()) {
 				
 			case RESERVE_TIME_SLOT:
-				boolean reserved = onReserve(msg.getSlot());
+				Ticket ticket = onReserve(msg.getSlot());
 				
-				if (!reserved)
+				// @todo: change semantics (if reservation went unsuccessful, ticket will be null)
+				if (ticket == null) 
 					msg.setSlot(-1);
-				//socket.sendSnapshot(new Snapshot(this));
-				socket.writeObject(msg);
-				System.out.println("Reserved: " + reserved);
+				else
+					msg.setTicket(ticket);
+				
+				platformSocket.writeObject(msg);
+				
 				break;
 				
 			default:
@@ -118,18 +117,22 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		}
 	}
 	
+	/**
+	 * @brief Connects the @see Parcheggio instance to the platform server
+	 * 
+	 */
 	public void connectToPlatform(String ip, int port) {
 	
-		socket.connect(ip, port);
+		platformSocket.connect(ip, port);
 		
 		// Add the platform as a remote observer
 		addObserver((o, s) -> {
 			
 			try {
-				socket.sendSnapshot((Parcheggio.Snapshot) s);
+				platformSocket.sendSnapshot((Parcheggio.Snapshot) s);
 			}
 			catch (Exception e) {
-				e.printStackTrace();
+
 			}
 		});
 		
@@ -142,59 +145,66 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		
 		// Launch valets
 		for (Parcheggiatore v : valets)
-			threadPool.submit(v);
+			threadPoolService.submit(v);
 		
-		// Launch the net watchdog
-		threadPool.submit(() -> netRequestWatchdog());
+		// Launch the net request watchdog
+		threadPoolService.submit(() -> netRequestWatchdog());
 		
-		// Launch the local watchdog
+		// Launch the local request watchdog
 		requestWatchdog();
 		
 		return null;
 	}
 	
+	/**
+	 * @brief Watchdog for net requests (requests coming from the platform server)
+	 * 
+	 */
 	protected void netRequestWatchdog() {
 	
 		while (true) {
 			
 			try {
-				Object message_ = socket.readObject(ParcheggioNetMessage.class);
+				
+				Object message_ = platformSocket.readObject(ParcheggioNetMessage.class);
 				ParcheggioNetMessage message = (ParcheggioNetMessage) message_;
 				
 				if (message != null)
-					processNextNetMessage(message);
+					processNetMessage(message);
 			}
 			catch (Exception e) {
-				
-				e.printStackTrace();
-				break;
+
 			}
 		}
 	}
 	
+	/**
+	 * @brief Watchdog for local requests
+	 * 
+	 */
 	protected void requestWatchdog() throws InterruptedException {
 		
 		while (true) {		
 			
-			synchronized (requestMonitor) {
+			//region Interlocked
+			synchronized (requestsMonitor) {
 				
 				int cumulativeSize = ritiroRequests.size() + restituzioneRequests.size();
 				
 				while (cumulativeSize == 0) {
 					
-					requestMonitor.wait();
+					requestsMonitor.wait();
 					cumulativeSize = ritiroRequests.size() + restituzioneRequests.size();
 				}
 			}
+			//endregion
 			
 			RitiroRequest rireq = ritiroRequests.poll();
 			
 			if (rireq != null) {
 				
-				if (!rireq.isBeingHandled()) {
-					
+				if (!rireq.isBeingHandled())		
 					onRitira(rireq);
-				}
 				else if (!rireq.isFulfilled())
 					ritiroRequests.add(rireq);
 			}
@@ -203,60 +213,99 @@ public class Parcheggio extends Observable implements Callable<Void> {
 			
 			if (rereq != null) {
 				
-				if (!rereq.isBeingHandled()) {
-					
-						onRestituisci(rereq);
-				}
+				if (!rereq.isBeingHandled())
+					onRestituisci(rereq);
 				else if (!rereq.isFulfilled())
 					restituzioneRequests.add(rereq);
 			}
 		}
 	}
 	
+	/**
+	 * @brief Handles a @see RitiroRequest pulled from the originating message mailbox
+	 * 
+	 * @throws InterruptedException
+	 */
 	protected void onRitira(RitiroRequest request) throws InterruptedException {
 		
-		boolean slotAcquired = freeParkingSlotsSemaphore.tryAcquire(fpsSemAcquireTimeout, TimeUnit.MICROSECONDS);
+		boolean slotAcquired = freeParkingSlotsSemaphore.tryAcquire(freeParkingSlotsSemaphoreAcquireTimeout, TimeUnit.MICROSECONDS);
 
 		if (slotAcquired) {
 			
-			boolean valetAcquired = valetsSemaphore.tryAcquire(parkSemAcquireTimeout, TimeUnit.MICROSECONDS);
-			
-			//region Interlocked
-			if (valetAcquired) {
-				
-				boolean handleAcquired = request.handle();
-				
-				if (handleAcquired) {
-					
-					Parcheggiatore valet = valets.poll();
-					RitiroRequest requestProxy = new RitiroRequest(request.getPayload());
-					
-					requestProxy.addObserver((o, ticket) -> {
-						
-						ticketAutoMap.put((Ticket) ticket, request.getPayload());
-						request.fulfill(ticket);
-						
-						valetsSemaphore.release();
-						
-						onParcheggioUpdate();
-					});
-					
-					valet.ritira(requestProxy);
-					valets.add(valet);
-				}
-				else {
-					
-					valetsSemaphore.release();
-					freeParkingSlotsSemaphore.release();
-				}
-			}
-			//endregion
+			onRitiraAcquireValetAndFulfill(request);
 		}
 	}
 	
+	/**
+	 * @brief Handles a @see RitiroWithTicketRequest pulled from the originating message mailbox
+	 * 
+	 * @throws InterruptedException
+	 */
+	protected void onRitiraWithTicket(RitiroWithTicketRequest request) throws InterruptedException {
+		
+		boolean slotAcquired = freeParkingSlotsSemaphore.tryAcquire(freeParkingSlotsSemaphoreAcquireTimeout, TimeUnit.MICROSECONDS);
+
+		if (slotAcquired) {
+			
+			onRitiraAcquireValetAndFulfill(request);
+		}
+	}
+	
+	/**
+	 * @brief Attempts to acquire a valet and fulfill a @see RitiroRequest
+	 * 
+	 * @throws InterruptedException 
+	 */
+	protected void onRitiraAcquireValetAndFulfill(RitiroRequest request) throws InterruptedException {
+		
+		boolean valetAcquired = valetsSemaphore.tryAcquire(valetsSemaphoreAcquireTimeout, TimeUnit.MICROSECONDS);
+		
+		//region Interlocked
+		if (valetAcquired) {
+			
+			boolean handleAcquired = request.handle();
+			
+			if (handleAcquired) {
+				
+				Parcheggiatore valet = valets.poll();
+				RitiroRequest requestProxy = new RitiroRequest(request.getPayload());
+				Ticket ticket;
+				
+				if (request instanceof RitiroWithTicketRequest)
+					ticket = ((RitiroWithTicketRequest) request).getPayloadTicket();
+				else
+					ticket = new Ticket();
+				
+				requestProxy.addObserver((o, none) -> {
+					
+					ticketAutomobileMap.put((Ticket) ticket, request.getPayload());
+					request.fulfill(ticket);
+					
+					valetsSemaphore.release();
+					
+					onParcheggioUpdate();
+				});
+				
+				valet.ritira(requestProxy);
+				valets.add(valet);
+			}
+			else {
+				
+				valetsSemaphore.release();
+				freeParkingSlotsSemaphore.release();
+			}
+		}
+		//endregion
+	}
+	
+	/**
+	 * @brief Handles a @see RestituzioneRequest pulled from the originating message mailbox
+	 * 
+	 * @throws InterruptedException
+	 */
 	protected void onRestituisci(RestituzioneRequest request) throws InterruptedException {
 		
-		boolean valetAcquired = valetsSemaphore.tryAcquire(parkSemAcquireTimeout, TimeUnit.MILLISECONDS);
+		boolean valetAcquired = valetsSemaphore.tryAcquire(valetsSemaphoreAcquireTimeout, TimeUnit.MICROSECONDS);
 		
 		if (valetAcquired) {
 			
@@ -269,13 +318,25 @@ public class Parcheggio extends Observable implements Callable<Void> {
 				
 				Parcheggiatore valet = valets.poll();
 				RestituzioneRequest requestProxy = new RestituzioneRequest(request.getPayload());
+				
 				requestProxy.addObserver((o, _null) -> {
 					
-					Automobile automobile = ticketAutoMap.remove(ticket);
+					Automobile automobile = ticketAutomobileMap.remove(ticket);
 					request.fulfill(automobile);
 					
 					freeParkingSlotsSemaphore.release();
 					valetsSemaphore.release();
+					
+					// Free the reserved time slot
+					int timeSlot = ticket.getReservedTimeSlot();
+					
+					//region Interlocked
+					synchronized (freeReservationTimeSlots) {
+						
+						if (freeReservationTimeSlots.containsKey(timeSlot))
+							freeReservationTimeSlots.put(timeSlot, true);
+					}
+					//endregion
 					
 					onParcheggioUpdate();
 				});
@@ -289,34 +350,31 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		}
 	}
 	
-	protected boolean onReserve(int timeSlot) {
+	/**
+	 * @brief Reserves a specific time slot
+	 * 
+	 * @param timeSlot to reserve
+	 * @return an entry/exit ticket if timeSlot has been reserved, null otherwise
+	 */
+	protected Ticket onReserve(int timeSlot) {
 		
-		boolean reserved = false;
+		Ticket ticket = null;
 		
+		//region Interlocked
 		synchronized (freeReservationTimeSlots) {
 			
 			if (freeReservationTimeSlots.containsKey(timeSlot)) {
 				
 				if (freeReservationTimeSlots.get(timeSlot) == true) {
 					
-					LocalDateTime dt = LocalDateTime.now();
-					int fixup = dt.getMinute() >= 30 ? 1 : 0;
-					int currentTimeSlot = 1 + (freeReservationTimeSlots.size() / 24) * (dt.getHour()) + fixup;
-					
-					for (int i = currentTimeSlot; i != timeSlot; i = (i + 1) % freeReservationTimeSlots.size()) {
-					
-						if (i == 0)
-							i++;
-						
-						freeReservationTimeSlots.put(i, false);
-					}
-					
-					reserved = true;
+					freeReservationTimeSlots.put(timeSlot, false);
+					ticket = new Ticket(timeSlot);
 				}
 			}
 		}
+		//endregion
 		
-		return reserved;
+		return ticket;
 	}
 	
 	protected void onParcheggioUpdate() {
@@ -325,22 +383,49 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		notifyObservers(new Snapshot(this));
 	}
 	
+	/**
+	 * @brief Posts a @see RitiroRequest to the corresponding message mailbox for later processing
+	 * 
+	 */
 	public void ritira(RitiroRequest request) {
 		
 		ritiroRequests.add(request);
 		
-		synchronized (requestMonitor) {
-			requestMonitor.notify();
+		//region Interlocked
+		synchronized (requestsMonitor) {
+			requestsMonitor.notify();
 		}
+		//endregion
 	}
 	
+	/**
+	 * @brief Posts a @see RitiroWithTicketRequest to the corresponding message mailbox for later processing
+	 * 
+	 */
+	public void ritiraWithTicket(RitiroWithTicketRequest request) {
+		
+		ritiroWithTicketRequests.add(request);
+		
+		//region Interlocked
+		synchronized (requestsMonitor) {
+			requestsMonitor.notify();
+		}
+		//endregion
+	}
+	
+	/**
+	 * @brief Posts a @see RestituzioneRequest to the corresponding message mailbox for later processing
+	 * 
+	 */
 	public void restituisci(RestituzioneRequest request) {
 		
 		restituzioneRequests.add(request);
 		
-		synchronized (requestMonitor) {
-			requestMonitor.notify();
+		//region Interlocked
+		synchronized (requestsMonitor) {
+			requestsMonitor.notify();
 		}
+		//endregion
 	}
 	
 	public int getId() {
@@ -367,12 +452,22 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		return restituzioneRequests.size();
 	}
 	
+	/**
+	 * 
+	 * @param timeSlot
+	 * @return true if the specified timeSlot is free for reservation, false otherwise (or timeSlot is out of bounds)
+	 */
 	public boolean isTimeSlotFree(int timeSlot) {
 		
-		if (freeReservationTimeSlots.containsKey(timeSlot))
-			return freeReservationTimeSlots.get(timeSlot);
-		
-		throw new IllegalArgumentException("Invalid time slot");
+		//region Interlocked
+		synchronized (freeReservationTimeSlots) {
+			
+			if (freeReservationTimeSlots.containsKey(timeSlot))
+				return freeReservationTimeSlots.get(timeSlot);
+			else
+				return false;
+		}
+		//endregion
 	}
 	
 	/**
@@ -388,6 +483,9 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		protected int freeParkingSlots;
 		protected int freeValets;
 		
+		/**
+		 * @note It's necessary to leave @see Snapshot default-constructible so as to allow for serialization
+		 */
 		public Snapshot() {
 			
 		}

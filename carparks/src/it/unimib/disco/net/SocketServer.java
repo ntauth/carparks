@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -59,7 +58,6 @@ public class SocketServer implements Callable<Void> {
 		while (abortListenLoop.get() != true) {
 			
 			Socket clientSocket = serverSocket.accept();
-			System.out.println("Nuovo client");
 			clientSocketsLock.lock();
 			clientSockets.add(clientSocket);
 			clientSocketsLock.unlock();
@@ -76,7 +74,6 @@ public class SocketServer implements Callable<Void> {
 	 * @param client The client to handle
 	 */
 	protected void handleClient(Socket client) {
-		System.out.println("Handle client");
 		//Per la lettura e scrittura client/server
 		PrintWriter out = null;
 		Scanner in = null;
@@ -96,7 +93,6 @@ public class SocketServer implements Callable<Void> {
 				NetMessage message = 
 						(NetMessage) policy.deserialize(lineIn.getBytes(), 
 														NetMessage.class);
-				System.out.println("["+this.hashCode()+"] Message received, type: " + message.getType());
 				if (message instanceof ClientNetMessage)
 					processClientMessage((ClientNetMessage) message, out, client);
 				else if (message instanceof ParcheggioNetMessage)
@@ -166,7 +162,6 @@ public class SocketServer implements Callable<Void> {
 		switch (messageType)
 		{
 			case SNAPSHOT_UPDATE:
-				System.out.println("Snapshot update!");
 				Snapshot messageSnapshot = message.getParking();
 				this.snapshots.put(messageSnapshot.getParcheggioId(), messageSnapshot);
 				this.parcheggioSocketMap.put(messageSnapshot.getParcheggioId(), client);
@@ -196,7 +191,6 @@ public class SocketServer implements Callable<Void> {
 		String toSend =  new String(this.policy.serialize(booking));
 		pw.println(toSend);
 		this.pendingRequests.put(booking.getTracer(), client);
-		System.out.println("Request sent: " + booking.getParking().getParcheggioId() + " " + booking.getSlot());
 	}
 	
 	/**

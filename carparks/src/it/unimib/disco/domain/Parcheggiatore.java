@@ -63,7 +63,9 @@ public class Parcheggiatore implements Callable<Void> {
 	
 	protected void onRitira(RitiroRequest request) {
 
-		request.fulfill(new Ticket());
+		// Fulfill the request with a dummy (null) @see Ticket
+		// The actual ticket will be given by @see Parcheggio
+		request.fulfill(null);
 	}
 	
 	protected void onRestituisci(RestituzioneRequest request) {

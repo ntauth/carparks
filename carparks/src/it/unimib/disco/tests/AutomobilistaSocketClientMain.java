@@ -3,8 +3,6 @@ package it.unimib.disco.tests;
 import java.io.IOException;
 import java.util.List;
 import java.util.Scanner;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import it.unimib.disco.domain.Parcheggio.Snapshot;
 import it.unimib.disco.net.AutomobilistaSocketClient;
@@ -18,12 +16,10 @@ public class AutomobilistaSocketClientMain implements Runnable{
 	private String platformIp;
 	private int platformPort;
 	
-	private final ExecutorService executor;
 	private AutomobilistaSocketClient client;
 	
 	public AutomobilistaSocketClientMain(String ip, int port)
 	{
-		executor = Executors.newCachedThreadPool();
 		platformIp = ip;
 		platformPort = port;
 		client = new AutomobilistaSocketClient(new JsonSerializationPolicy());
@@ -51,6 +47,7 @@ public class AutomobilistaSocketClientMain implements Runnable{
 
 	@Override
 	public void run() {
+		
 		Scanner in = new Scanner(System.in);
 		System.out.printf("Attempting connection with %s:%d...\n", 
 							platformIp, 
@@ -74,7 +71,7 @@ public class AutomobilistaSocketClientMain implements Runnable{
 				try {
 					List<Snapshot> snapshots = client.getParcheggioSnapshots();
 					for (int i = 0; i < snapshots.size(); i++)
-						System.out.printf("[%d] %s", i, snapshots.get(i).getParcheggioId());
+						System.out.printf("[%d] %s", i, snapshots.get(i).getParcheggioName());
 				} catch (ClassNotFoundException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -89,7 +86,7 @@ public class AutomobilistaSocketClientMain implements Runnable{
 				try {
 					List<Snapshot> snapshots = client.getParcheggioSnapshots();
 					for (int i = 0; i < snapshots.size(); i++)
-						System.out.printf("[%d] %s\n", i, snapshots.get(i).getParcheggioId());
+						System.out.printf("[%d] %s\n", i, snapshots.get(i).getParcheggioName());
 					System.out.printf("Enter parking to book. (0-%d)\n", snapshots.size());
 					int parking = Integer.parseInt(in.nextLine());
 					System.out.printf("Enter slot\n", snapshots.size());
@@ -116,6 +113,8 @@ public class AutomobilistaSocketClientMain implements Runnable{
 			}
 			cls();
 		}
+		
+		in.close();
 	}
 	
 	private void cls()

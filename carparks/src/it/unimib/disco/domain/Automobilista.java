@@ -6,6 +6,7 @@ import java.util.logging.Logger;
 public class Automobilista {
 
 	private final static Logger _logger;	
+	
 	protected boolean loggingEnabled;
 	
 	protected Automobile automobile;
