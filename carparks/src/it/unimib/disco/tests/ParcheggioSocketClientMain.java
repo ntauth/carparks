@@ -17,15 +17,10 @@ public class ParcheggioSocketClientMain implements Runnable {
 	
 	private static final String[] DEFAULT_PARCHEGGI_NAMES = {
 			"Car Silos, Autostadt",
-			"Car Park One",
+			"Rheinauhafen Parking Tunnel",
 			"Herma Parking Building",
-			"KRE House",
-			"Eureka Car Park",
-			"Veranda Car Park",
-			"Cordova Parkade",
-			"Carousel Car Garage",
 			"Parkhaus Engelenschanze",
-			"Rheinauhafen Parking Tunnel"
+			"Eureka Car Park",
 	};
 	
 	private static final String DEFAULT_PLATFORM_IP = "127.0.0.1";

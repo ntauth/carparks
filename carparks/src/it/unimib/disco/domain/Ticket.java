@@ -5,7 +5,7 @@ import java.util.UUID;
 public class Ticket {
 
 	protected UUID uuid;
-	protected int  reservedTimeSlot;
+	protected int  reservedTimeSlots;
 	
 	public Ticket() {
 		this(UUID.randomUUID());
@@ -13,7 +13,7 @@ public class Ticket {
 	
 	public Ticket(UUID uuid) {
 		
-		this(uuid, -1);
+		this(uuid, 0);
 	}
 	
 	public Ticket(int reservedTimeSlot) {
@@ -24,7 +24,7 @@ public class Ticket {
 	public Ticket(UUID uuid, int reservedTimeSlot) {
 		
 		this.uuid = uuid;
-		this.reservedTimeSlot = reservedTimeSlot;
+		this.reservedTimeSlots = reservedTimeSlot;
 	}
 	
 	public UUID getUuid() {
@@ -35,12 +35,12 @@ public class Ticket {
 		this.uuid = uuid;
 	}
 
-	public int getReservedTimeSlot() {
-		return reservedTimeSlot;
+	public int getReservedTimeSlots() {
+		return reservedTimeSlots;
 	}
 
-	public void setReservedTimeSlot(int reservedTimeSlot) {
-		this.reservedTimeSlot = reservedTimeSlot;
+	public void setReservedTimeSlots(int reservedTimeSlot) {
+		this.reservedTimeSlots = reservedTimeSlot;
 	}
 
 	@Override

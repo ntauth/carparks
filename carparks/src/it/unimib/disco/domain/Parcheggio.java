@@ -1,11 +1,13 @@
 package it.unimib.disco.domain;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Observable;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -26,11 +28,13 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected static final long PARKSLOT_SEMAPHORE_ACQUIRE_TIMEOUT = 500L;
 	protected static final long VALETS_SEMAPHORE_ACQUIRE_TIMEOUT = 500L;
 	
+	protected static final int PARKING_SLOT_OCCUPIED_INDEFINITELY = -1;
+	
 	protected int id;
 	protected String name;
-	
-	protected Map<Integer, Boolean> freeReservationTimeSlots;
 
+	protected int reservationTimeSlotCount;
+	protected Map<Integer, Integer> freeParkingSlots;
 	protected Semaphore freeParkingSlotsSemaphore;
 	protected long freeParkingSlotsSemaphoreAcquireTimeout;
 	
@@ -39,6 +43,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected long valetsSemaphoreAcquireTimeout;
 	
 	protected Map<Ticket, Automobile> ticketAutomobileMap;
+	protected Map<Ticket, Integer> ticketParkingSlotMap;
 	
 	protected Object requestsMonitor;
 	protected ConcurrentLinkedQueue<RitiroRequest> ritiroRequests;
@@ -58,13 +63,13 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		this.id = id;
 		this.name = name;
 		
-		// Create the time slots and initialize them all to true (free)
-		this.freeReservationTimeSlots = new HashMap<>();
-		
-		for (int i = 1; i <= RESERVATION_TIME_SLOT_COUNT; i++)
-			freeReservationTimeSlots.put(i, true);
-		
 		// Parking slots
+		this.freeParkingSlots = new HashMap<>();
+		this.reservationTimeSlotCount = RESERVATION_TIME_SLOT_COUNT;
+		
+		for (int i = 1; i <= freeParkingSlots; i++)
+			this.freeParkingSlots.put(i, this.reservationTimeSlotCount);
+		
 		this.freeParkingSlotsSemaphore = new Semaphore(freeParkingSlots, true);
 		this.freeParkingSlotsSemaphoreAcquireTimeout = PARKSLOT_SEMAPHORE_ACQUIRE_TIMEOUT;
 		
@@ -78,6 +83,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 			this.valets.add(v);
 		
 		this.ticketAutomobileMap = new HashMap<>();
+		this.ticketParkingSlotMap = new HashMap<>();
 		
 		// Requests
 		this.requestsMonitor = new Object();
@@ -99,14 +105,8 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		
 		switch (msg.getType()) {
 				
-			case RESERVE_TIME_SLOT:
-				Ticket ticket = onReserve(msg.getSlot());
-				
-				// @todo: change semantics (if reservation went unsuccessful, ticket will be null)
-				if (ticket == null) 
-					msg.setSlot(-1);
-				else
-					msg.setTicket(ticket);
+			case RESERVE_TIME_SLOT:		
+				msg.setTicket(onReserve(msg.getSlot()));
 				
 				platformSocket.writeObject(msg);
 				
@@ -232,7 +232,24 @@ public class Parcheggio extends Observable implements Callable<Void> {
 
 		if (slotAcquired) {
 			
-			onRitiraAcquireValetAndFulfill(request);
+			// Find the first free parking slot
+			int freeParkingSlot;
+			
+			//region Interlocked
+			synchronized (freeParkingSlots) {
+				
+				Optional<Integer> firstFreeParkingSlot = freeParkingSlots.entrySet().stream()
+																.filter(x -> x.getValue() > 0)
+																.map(x -> x.getKey())
+																.findFirst();
+				assert firstFreeParkingSlot.isPresent();
+				
+				freeParkingSlot = firstFreeParkingSlot.get();
+				freeParkingSlots.put(freeParkingSlot, PARKING_SLOT_OCCUPIED_INDEFINITELY);
+			}
+			//endregion
+			
+			onRitiraAcquireValetAndFulfill(request, freeParkingSlot);
 		}
 	}
 	
@@ -247,17 +264,18 @@ public class Parcheggio extends Observable implements Callable<Void> {
 
 		if (slotAcquired) {
 			
-			onRitiraAcquireValetAndFulfill(request);
+			assert ticketParkingSlotMap.containsKey(request.getPayloadTicket());
+			onRitiraAcquireValetAndFulfill(request, ticketParkingSlotMap.get(request.getPayloadTicket()));
 		}
 	}
-	
+
 	/**
 	 * @brief Attempts to acquire a valet and fulfill a @see RitiroRequest
 	 * 
-	 * @throws InterruptedException 
+	 * @throws InterruptedException
 	 */
-	protected void onRitiraAcquireValetAndFulfill(RitiroRequest request) throws InterruptedException {
-		
+	protected void onRitiraAcquireValetAndFulfill(RitiroRequest request, int parkingSlot) throws InterruptedException {
+
 		boolean valetAcquired = valetsSemaphore.tryAcquire(valetsSemaphoreAcquireTimeout, TimeUnit.MICROSECONDS);
 		
 		//region Interlocked
@@ -271,6 +289,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 				RitiroRequest requestProxy = new RitiroRequest(request.getPayload());
 				Ticket ticket;
 				
+				// If RitiroWithTicket, don't create a new Ticket
 				if (request instanceof RitiroWithTicketRequest)
 					ticket = ((RitiroWithTicketRequest) request).getPayloadTicket();
 				else
@@ -279,6 +298,8 @@ public class Parcheggio extends Observable implements Callable<Void> {
 				requestProxy.addObserver((o, none) -> {
 					
 					ticketAutomobileMap.put((Ticket) ticket, request.getPayload());
+					ticketParkingSlotMap.put((Ticket) ticket, parkingSlot);
+					
 					request.fulfill(ticket);
 					
 					valetsSemaphore.release();
@@ -324,19 +345,21 @@ public class Parcheggio extends Observable implements Callable<Void> {
 					Automobile automobile = ticketAutomobileMap.remove(ticket);
 					request.fulfill(automobile);
 					
-					freeParkingSlotsSemaphore.release();
-					valetsSemaphore.release();
+					// Free the parking slot
+					int reservedTimeSlots = ticket.getReservedTimeSlots();
+					int parkingSlot = ticketParkingSlotMap.get(ticket);
+					int timeSlotsFreeAfter = reservedTimeSlots > 0 ? reservedTimeSlots + freeParkingSlots.get(parkingSlot) : this.reservationTimeSlotCount;
 					
-					// Free the reserved time slot
-					int timeSlot = ticket.getReservedTimeSlot();
+					assert freeParkingSlots.containsKey(parkingSlot);
 					
 					//region Interlocked
-					synchronized (freeReservationTimeSlots) {
-						
-						if (freeReservationTimeSlots.containsKey(timeSlot))
-							freeReservationTimeSlots.put(timeSlot, true);
+					synchronized (freeParkingSlots) {		
+						freeParkingSlots.put(parkingSlot, timeSlotsFreeAfter);
 					}
 					//endregion
+
+					freeParkingSlotsSemaphore.release();
+					valetsSemaphore.release();
 					
 					onParcheggioUpdate();
 				});
@@ -351,24 +374,33 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	}
 	
 	/**
-	 * @brief Reserves a specific time slot
+	 * @brief Reserves a specific quantity of time slots
 	 * 
-	 * @param timeSlot to reserve
-	 * @return an entry/exit ticket if timeSlot has been reserved, null otherwise
+	 * @param timeSlots to reserve
+	 * @return an entry/exit ticket if timeSlots have been reserved, null otherwise
 	 */
-	protected Ticket onReserve(int timeSlot) {
+	protected Ticket onReserve(int timeSlots) {
 		
 		Ticket ticket = null;
 		
 		//region Interlocked
-		synchronized (freeReservationTimeSlots) {
+		synchronized (freeParkingSlots) {
 			
-			if (freeReservationTimeSlots.containsKey(timeSlot)) {
+			Optional<Map.Entry<Integer, Integer>> firstFreeParkingSlot = freeParkingSlots.entrySet().stream()
+															.filter(x -> x.getValue() > 0)
+															.sorted(Comparator.comparing(Map.Entry::getValue))
+															.findFirst();
+			
+			if (firstFreeParkingSlot.isPresent()) {
 				
-				if (freeReservationTimeSlots.get(timeSlot) == true) {
+				Map.Entry<Integer, Integer> freeParkingSlot = firstFreeParkingSlot.get();
+				
+				int freeTimeSlots = freeParkingSlot.getValue();
+				
+				if (freeTimeSlots >= timeSlots) {
 					
-					freeReservationTimeSlots.put(timeSlot, false);
-					ticket = new Ticket(timeSlot);
+					freeParkingSlots.put(freeParkingSlot.getKey(), freeTimeSlots - timeSlots);
+					ticket = new Ticket(timeSlots);
 				}
 			}
 		}
@@ -453,24 +485,6 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	}
 	
 	/**
-	 * 
-	 * @param timeSlot
-	 * @return true if the specified timeSlot is free for reservation, false otherwise (or timeSlot is out of bounds)
-	 */
-	public boolean isTimeSlotFree(int timeSlot) {
-		
-		//region Interlocked
-		synchronized (freeReservationTimeSlots) {
-			
-			if (freeReservationTimeSlots.containsKey(timeSlot))
-				return freeReservationTimeSlots.get(timeSlot);
-			else
-				return false;
-		}
-		//endregion
-	}
-	
-	/**
 	 * @brief Instantaneous Description of @see Parcheggio
 	 *
 	 */
@@ -479,7 +493,6 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		protected int parcheggioId;
 		protected String parcheggioName;
 		
-		protected Map<Integer, Boolean> freeReservationTimeSlots;
 		protected int freeParkingSlots;
 		protected int freeValets;
 		
@@ -494,7 +507,6 @@ public class Parcheggio extends Observable implements Callable<Void> {
 			
 			parcheggioId = target.id;
 			parcheggioName = target.name;
-			freeReservationTimeSlots = target.freeReservationTimeSlots;
 			freeParkingSlots = target.getFreeParkingSlots();
 			freeValets = target.getFreeValets();
 		}
@@ -514,15 +526,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		public void setParcheggioName(String parcheggioName) {
 			this.parcheggioName = parcheggioName;
 		}
-
-		public Map<Integer, Boolean> getFreeReservationTimeSlots() {
-			return freeReservationTimeSlots;
-		}
-
-		public void setFreeReservationTimeSlots(Map<Integer, Boolean> freeReservationTimeSlots) {
-			this.freeReservationTimeSlots = freeReservationTimeSlots;
-		}
-
+		
 		public int getFreeParkingSlots() {
 			return freeParkingSlots;
 		}
@@ -537,10 +541,6 @@ public class Parcheggio extends Observable implements Callable<Void> {
 
 		public void setFreeValets(int freeValets) {
 			this.freeValets = freeValets;
-		}
-
-		public Map<Integer, Boolean> getFreeTimeSlots() {
-			return freeReservationTimeSlots;
 		}
 		
 	}
