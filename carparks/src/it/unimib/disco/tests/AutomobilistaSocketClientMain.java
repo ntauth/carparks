@@ -1,6 +1,8 @@
 package it.unimib.disco.tests;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Scanner;
 
@@ -16,6 +18,7 @@ public class AutomobilistaSocketClientMain implements Runnable{
 	
 	private String platformIp;
 	private int platformPort;
+	private String[] slots = {"00:00"};
 	
 	private AutomobilistaSocketClient client;
 	
@@ -66,7 +69,6 @@ public class AutomobilistaSocketClientMain implements Runnable{
 					break;
 			if (input == 1)
 			{
-				cls();
 				System.out.println("Currently available parking");
 				System.out.println();
 				try {
@@ -85,7 +87,6 @@ public class AutomobilistaSocketClientMain implements Runnable{
 			if (input == 2)
 			{
 				try {
-					cls();
 					System.out.println("Book a parking");
 					System.out.println();
 					List<Snapshot> snapshots = client.getParcheggioSnapshots();
@@ -95,14 +96,17 @@ public class AutomobilistaSocketClientMain implements Runnable{
 					int parking = getInput(String.format("Enter parking to book. (0-%d)\n", snapshots.size()-1),
 										   String.format("Please enter value between %d and %d.\n", 0, snapshots.size()-1),
 										   0, snapshots.size()-1);
-					System.out.printf("Enter slot\n", snapshots.size());
-					int slot = getInput(String.format("Enter slot\n", snapshots.size()),
-										String.format("Please enter values between %d and %d.\n", 1, 48),
-										1, 48);
-					System.out.println("Sending request to " + 
-										snapshots.get(parking).getParcheggioName() + 
-										", slot: " + 
-										slot);
+					Object[] slots = getAvailableSlots(48);
+					System.out.printf("Enter slot from %s to: \n", slots[0]);
+					for (int i = 0; i < slots.length; i++)
+						System.out.printf("[%d] %s\n", i+1, slots[i]);
+					int slot = getInput("",
+										String.format("Please enter values between %d and %d.\n", 1, slots.length+1),
+										1, slots.length+1);
+					System.out.printf("Sending request to %s, from %s to %s\n", 
+										snapshots.get(parking).getParcheggioName(),
+										slots[0],
+										slots[slot-1]);
 					Ticket ticket = client.reserveTimeSlot(snapshots.get(parking), slot);
 					if(ticket==null)
 						System.out.println("Something went wrong!");
@@ -147,9 +151,27 @@ public class AutomobilistaSocketClientMain implements Runnable{
 		return result;
 	}
 	
-	private void cls()
+	public Object[] getAvailableSlots(int capSize)
 	{
+		ArrayList<String> s = new ArrayList<String>();
+		Calendar rightNow = Calendar.getInstance();
+		int hour = rightNow.get(Calendar.HOUR_OF_DAY);
+		int slots = 0;
+		for (int minutes = 0,hours = hour; 
+			(hours < 24) && slots < capSize; 
+			minutes+= 30)
+		{
+			slots++;
+			if (minutes == 60)
+			{
+				hours++;
+				minutes = 0;
+			}
+			s.add(String.format("%02d:%02d", hours, minutes));
+		}
+		return s.toArray();
 	}
+	
 }
 
 
