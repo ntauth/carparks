@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Scanner;
 
 import it.unimib.disco.domain.Parcheggio.Snapshot;
+import it.unimib.disco.domain.Ticket;
 import it.unimib.disco.net.AutomobilistaSocketClient;
 import it.unimib.disco.net.serialization.JsonSerializationPolicy;
 
@@ -57,21 +58,22 @@ public class AutomobilistaSocketClientMain implements Runnable{
 		
 		while (true)
 		{
-			System.out.println("[0] Exit");
-			System.out.println("[1] See available parking ");
-			System.out.println("[2] Book a parking");
-			String input = in.nextLine();
+			int input = getInput("[0] Exit\n[1] See available parking\n[2] Book a parking\n",
+								 String.format("Please enter values between %d and %d.\n", 0, 2),
+								 0, 2);
 			
-			
-			if(input.equals("0"))
+			if(input == 0)
 					break;
-			if (input.equals("1"))
+			if (input == 1)
 			{
 				cls();
+				System.out.println("Currently available parking");
+				System.out.println();
 				try {
 					List<Snapshot> snapshots = client.getParcheggioSnapshots();
 					for (int i = 0; i < snapshots.size(); i++)
-						System.out.printf("[%d] %s", i, snapshots.get(i).getParcheggioName());
+						System.out.printf("%s\n", snapshots.get(i).getParcheggioName());
+					System.out.println();
 				} catch (ClassNotFoundException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -80,29 +82,33 @@ public class AutomobilistaSocketClientMain implements Runnable{
 					e.printStackTrace();
 				}
 			}
-			if (input.equals("2"))
+			if (input == 2)
 			{
-				cls();
 				try {
+					cls();
+					System.out.println("Book a parking");
+					System.out.println();
 					List<Snapshot> snapshots = client.getParcheggioSnapshots();
 					for (int i = 0; i < snapshots.size(); i++)
 						System.out.printf("[%d] %s\n", i, snapshots.get(i).getParcheggioName());
-					System.out.printf("Enter parking to book. (0-%d)\n", snapshots.size());
-					int parking = Integer.parseInt(in.nextLine());
+					System.out.println();
+					int parking = getInput(String.format("Enter parking to book. (0-%d)\n", snapshots.size()-1),
+										   String.format("Please enter value between %d and %d.\n", 0, snapshots.size()-1),
+										   0, snapshots.size()-1);
 					System.out.printf("Enter slot\n", snapshots.size());
-					int slot = Integer.parseInt(in.nextLine());
-					System.out.println("Sending request to " + parking + ", slot: " + slot);
-					boolean result = client.reserveTimeSlot(snapshots.get(parking), slot);
-					if(!result)
-					{
+					int slot = getInput(String.format("Enter slot\n", snapshots.size()),
+										String.format("Please enter values between %d and %d.\n", 1, 48),
+										1, 48);
+					System.out.println("Sending request to " + 
+										snapshots.get(parking).getParcheggioName() + 
+										", slot: " + 
+										slot);
+					Ticket ticket = client.reserveTimeSlot(snapshots.get(parking), slot);
+					if(ticket==null)
 						System.out.println("Something went wrong!");
-					}
 					else
-					{
-						System.out.println("Reservation successfull!");
-					}
-					System.out.println("Press any button to continue...");
-					in.nextByte();
+						System.out.println("Reservation successfull! Ticket: " + ticket.getUuid());
+					System.out.println();
 				} catch (ClassNotFoundException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -111,15 +117,38 @@ public class AutomobilistaSocketClientMain implements Runnable{
 					e.printStackTrace();
 				}
 			}
-			cls();
 		}
 		
 		in.close();
 	}
 	
+	private int getInput(String messagePrompt, String messageFail, int minVal, int maxVal)
+	{
+		Scanner in = new Scanner(System.in);
+		int result;
+		while(true)
+		{
+			System.out.print(messagePrompt);
+			try
+			{
+				result = Integer.parseInt(in.nextLine());
+				if (result >= minVal && result <= maxVal)
+					break;
+				else
+				{
+					System.out.print(messageFail);
+				}
+			}
+			catch (Exception e)
+			{
+				System.out.print(messageFail);
+			}
+		}
+		return result;
+	}
+	
 	private void cls()
 	{
-		System.out.printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
 	}
 }
 
