@@ -7,6 +7,7 @@ import java.util.Scanner;
 import java.util.function.Consumer;
 
 import it.unimib.disco.domain.Parcheggio;
+import it.unimib.disco.domain.Ticket;
 import it.unimib.disco.net.message.ClientNetMessage;
 import it.unimib.disco.net.message.NetMessageType;
 import it.unimib.disco.net.serialization.ISerializationPolicy;
@@ -65,19 +66,14 @@ public class AutomobilistaSocketClient extends SocketClientBase {
 		return response.getSnapshots();
 	}
 	
-	public boolean reserveTimeSlot(Parcheggio.Snapshot snapshot, int timeSlot) throws IOException, ClassNotFoundException {
+	public Ticket reserveTimeSlot(Parcheggio.Snapshot snapshot, int timeSlot) throws IOException, ClassNotFoundException {
 		
-		boolean success;
 		ClientNetMessage toSend = new ClientNetMessage(NetMessageType.RESERVE_TIME_SLOT,
 				snapshot,
 				timeSlot);
 		writeObject(toSend);
-		ClientNetMessage response = (ClientNetMessage) readObject(ClientNetMessage.class);
-		
-		System.out.println("Response: " + response.getSlot());
-		success = response.getSlot() == timeSlot ? true : false;
-		
-		return success;
+		ClientNetMessage response = (ClientNetMessage) readObject(ClientNetMessage.class);		
+		return response.getTicket();
 	}
 	
 }
