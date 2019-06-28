@@ -56,7 +56,6 @@ public class AutomobilistaSocketClientMain implements Runnable{
 							platformIp, 
 							platformPort);
 		client.connect(platformIp, platformPort);
-		System.out.printf("Done.\n");
 		
 		while (true)
 		{
@@ -101,17 +100,17 @@ public class AutomobilistaSocketClientMain implements Runnable{
 										   snapshots.size());
 					if(parking!=snapshots.size())
 					{
-						Object[] slots = getAvailableSlots(48);
+						Object[] slots = getAvailableSlots();
 						System.out.printf("Enter slot from %s to: \n", slots[0]);
-						for (int i = 0; i < slots.length; i++)
-							System.out.printf("[%d] %s\n", i+1, slots[i]);
+						for (int i = 1; i < slots.length; i++)
+							System.out.printf("[%d] %s\n", i, slots[i]);
 						int slot = getInput("",
 										String.format("Please enter values between %d and %d.\n", 1, slots.length+1),
 										1, slots.length+1);
 						System.out.printf("Sending request to %s, from %s to %s\n", 
 										snapshots.get(parking).getParcheggioName(),
 										slots[0],
-										slots[slot-1]);
+										slots[slot]);
 						Ticket ticket = client.reserveTimeSlot(snapshots.get(parking), slot);
 						if(ticket==null)
 							System.out.println("Something went wrong!");
@@ -157,17 +156,13 @@ public class AutomobilistaSocketClientMain implements Runnable{
 		return result;
 	}
 	
-	public Object[] getAvailableSlots(int capSize)
+	public Object[] getAvailableSlots()
 	{
 		ArrayList<String> s = new ArrayList<String>();
-		Calendar rightNow = Calendar.getInstance();
-		int hour = rightNow.get(Calendar.HOUR_OF_DAY);
-		int slots = 0;
-		for (int minutes = 0,hours = hour; 
-			(hours < 24) && slots < capSize; 
+		for (int minutes = 0,hours = 0; 
+			hours < 24; 
 			minutes+= 30)
 		{
-			slots++;
 			if (minutes == 60)
 			{
 				hours++;
@@ -175,7 +170,30 @@ public class AutomobilistaSocketClientMain implements Runnable{
 			}
 			s.add(String.format("%02d:%02d", hours, minutes));
 		}
+		s.remove(s.size()-1);
+		Calendar rightNow = Calendar.getInstance();
+		int total = rightNow.get(Calendar.HOUR_OF_DAY)*2;
+		int minutes = rightNow.get(Calendar.MINUTE);
+		if (minutes >= 30)
+			total++;
+		rotate(s, 48-total);
 		return s.toArray();
+	}
+	
+	private <T> ArrayList<T> rotate(ArrayList<T> aL, int shift)
+	{
+	    if (aL.size() == 0)
+	        return aL;
+
+	    T element = null;
+	    for(int i = 0; i < shift; i++)
+	    {
+	        // remove last element, add it to front of the ArrayList
+	        element = aL.remove( aL.size() - 1 );
+	        aL.add(0, element);
+	    }
+
+	    return aL;
 	}
 	
 }
