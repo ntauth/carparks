@@ -18,7 +18,6 @@ public class AutomobilistaSocketClientMain implements Runnable{
 	
 	private String platformIp;
 	private int platformPort;
-	private String[] slots = {"00:00"};
 	
 	private AutomobilistaSocketClient client;
 	
@@ -155,6 +154,7 @@ public class AutomobilistaSocketClientMain implements Runnable{
 				System.out.print(messageFail);
 			}
 		}
+		in.close();
 		return result;
 	}
 	
