@@ -93,26 +93,33 @@ public class AutomobilistaSocketClientMain implements Runnable{
 					for (int i = 0; i < snapshots.size(); i++)
 						System.out.printf("[%d] %s\n", i, snapshots.get(i).getParcheggioName());
 					System.out.println();
-					int parking = getInput(String.format("Enter parking to book. (0-%d)\n", snapshots.size()-1),
-										   String.format("Please enter value between %d and %d.\n", 0, snapshots.size()-1),
-										   0, snapshots.size()-1);
-					Object[] slots = getAvailableSlots(48);
-					System.out.printf("Enter slot from %s to: \n", slots[0]);
-					for (int i = 0; i < slots.length; i++)
-						System.out.printf("[%d] %s\n", i+1, slots[i]);
-					int slot = getInput("",
+					int parking = getInput(String.format("Enter parking to book. (0-%d) (%d to abort)\n", 
+														snapshots.size()-1, 
+														snapshots.size()),
+										   String.format("Please enter value between %d and %d.\n", 0, 
+												   		 snapshots.size()),
+										   0, 
+										   snapshots.size());
+					if(parking!=snapshots.size())
+					{
+						Object[] slots = getAvailableSlots(48);
+						System.out.printf("Enter slot from %s to: \n", slots[0]);
+						for (int i = 0; i < slots.length; i++)
+							System.out.printf("[%d] %s\n", i+1, slots[i]);
+						int slot = getInput("",
 										String.format("Please enter values between %d and %d.\n", 1, slots.length+1),
 										1, slots.length+1);
-					System.out.printf("Sending request to %s, from %s to %s\n", 
+						System.out.printf("Sending request to %s, from %s to %s\n", 
 										snapshots.get(parking).getParcheggioName(),
 										slots[0],
 										slots[slot-1]);
-					Ticket ticket = client.reserveTimeSlot(snapshots.get(parking), slot);
-					if(ticket==null)
-						System.out.println("Something went wrong!");
-					else
-						System.out.println("Reservation successfull! Ticket: " + ticket.getUuid());
-					System.out.println();
+						Ticket ticket = client.reserveTimeSlot(snapshots.get(parking), slot);
+						if(ticket==null)
+							System.out.println("Something went wrong!");
+						else
+							System.out.println("Reservation successfull! Ticket: " + ticket.getUuid());
+						System.out.println();
+					}
 				} catch (ClassNotFoundException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
