@@ -154,7 +154,6 @@ public class AutomobilistaSocketClientMain implements Runnable{
 				System.out.print(messageFail);
 			}
 		}
-		in.close();
 		return result;
 	}
 	
