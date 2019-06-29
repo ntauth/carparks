@@ -67,57 +67,80 @@ public class AutomobilistaSocketClientMain implements Runnable{
 					break;
 			if (input == 1)
 			{
+				
 				System.out.println("Currently available parking");
 				System.out.println();
 				try {
-					List<Snapshot> snapshots = client.getParcheggioSnapshots();
+					
+					List<Snapshot> snapshots = new ArrayList<Snapshot>();
+					for (Snapshot s : client.getParcheggioSnapshots())
+						if (s.getFreeParkingSlots() > 0)
+							snapshots.add(s);
 					for (int i = 0; i < snapshots.size(); i++)
 						System.out.printf("%s\n", snapshots.get(i).getParcheggioName());
 					System.out.println();
+					
 				} catch (ClassNotFoundException e) {
+					
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				} catch (IOException e) {
+					
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
 			if (input == 2)
 			{
+				
 				try {
+					
 					System.out.println("Book a parking");
 					System.out.println();
-					List<Snapshot> snapshots = client.getParcheggioSnapshots();
-					for (int i = 0; i < snapshots.size(); i++)
-						System.out.printf("[%d] %s\n", i, snapshots.get(i).getParcheggioName());
-					System.out.println();
-					int parking = getInput(String.format("Enter parking to book. (0-%d) (%d to abort)\n", 
-														snapshots.size()-1, 
-														snapshots.size()),
-										   String.format("Please enter value between %d and %d.\n", 0, 
-												   		 snapshots.size()),
-										   0, 
-										   snapshots.size());
-					if(parking!=snapshots.size())
+					List<Snapshot> snapshots = new ArrayList<Snapshot>();
+					for (Snapshot s : client.getParcheggioSnapshots())
+						if (s.getFreeParkingSlots() > 0)
+							snapshots.add(s);
+					if (snapshots.size() != 0)
 					{
-						Object[] slots = getAvailableSlots();
-						System.out.printf("Enter slot from %s to: \n", slots[0]);
-						for (int i = 1; i < slots.length; i++)
-							System.out.printf("[%d] %s\n", i, slots[i]);
-						int slot = getInput("",
-										String.format("Please enter values between %d and %d.\n", 1, slots.length+1),
-										1, slots.length+1);
-						System.out.printf("Sending request to %s, from %s to %s\n", 
-										snapshots.get(parking).getParcheggioName(),
-										slots[0],
-										slots[slot]);
-						Ticket ticket = client.reserveTimeSlot(snapshots.get(parking), slot);
-						if(ticket==null)
-							System.out.println("Something went wrong!");
-						else
-							System.out.println("Reservation successfull! Ticket: " + ticket.getUuid());
+						for (int i = 0; i < snapshots.size(); i++)
+							System.out.printf("[%d] %s\n", i, snapshots.get(i).getParcheggioName());
 						System.out.println();
+						int parking = getInput(String.format("Enter parking to book. (0-%d) (%d to abort)\n", 
+															snapshots.size()-1, 
+															snapshots.size()),
+											   String.format("Please enter value between %d and %d.\n", 0, 
+													   		 snapshots.size()),
+											   0, 
+											   snapshots.size());
+						if(parking!=snapshots.size())
+						{
+							Object[] slots = getAvailableSlots();
+							System.out.printf("Enter slot from %s to: \n", slots[slots.length-1]);
+							for (int i = 0; i < slots.length; i++)
+								System.out.printf("[%d] %s\n", i+1, slots[i]);
+							
+							int slot = getInput("",
+											String.format("Please enter values between %d and %d.\n", 1, slots.length+1),
+											1, slots.length+1);
+							
+							System.out.printf("Sending request to %s, from %s to %s\n", 
+											snapshots.get(parking).getParcheggioName(),
+											slots[slots.length-1],
+											slots[slot-1]);
+							
+							Ticket ticket = client.reserveTimeSlot(snapshots.get(parking), slot);
+							
+							if(ticket==null)
+								System.out.println("Time slots for this parking is not available!");
+							else
+								System.out.println("Reservation successfull! Ticket: " + ticket.getUuid());
+							
+						}
 					}
+					else
+						System.out.println("No parking available!");
+					System.out.println();
 				} catch (ClassNotFoundException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -176,7 +199,7 @@ public class AutomobilistaSocketClientMain implements Runnable{
 		int minutes = rightNow.get(Calendar.MINUTE);
 		if (minutes >= 30)
 			total++;
-		rotate(s, 48-total);
+		rotate(s, 47-total);
 		return s.toArray();
 	}
 	
