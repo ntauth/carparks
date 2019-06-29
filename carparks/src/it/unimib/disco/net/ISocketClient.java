@@ -17,4 +17,5 @@ public interface ISocketClient {
 	public void writeObject(Object obj) throws IOException;
 	
 	public SocketClientConnectionStatus getConnectionStatus();
+	
 }

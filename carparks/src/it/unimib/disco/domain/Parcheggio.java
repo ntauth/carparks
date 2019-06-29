@@ -341,7 +341,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 				Parcheggiatore valet = valets.poll();
 				RestituzioneRequest requestProxy = new RestituzioneRequest(request.getPayload());
 				
-				requestProxy.addObserver((o, _null) -> {
+				requestProxy.addObserver((o, none) -> {
 					
 					Automobile automobile = ticketAutomobileMap.remove(ticket);
 					request.fulfill(automobile);
@@ -403,7 +403,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 					int timeSlotsLeft = freeTimeSlots - timeSlots;
 					
 					if (timeSlotsLeft == 0)
-						assert freeParkingSlotsSemaphore.tryAcquire() == true;
+						freeParkingSlotsSemaphore.tryAcquire();
 					
 					freeParkingSlots.put(freeParkingSlot.getKey(), timeSlotsLeft);
 					
