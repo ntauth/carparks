@@ -54,12 +54,12 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected ParcheggioSocketClient platformSocket;
 
 	public Parcheggio(int freeParkingSlots, List<Parcheggiatore> valets) {
-		
 		this(UUID.randomUUID().hashCode(), "", freeParkingSlots, valets);
 	}
 	
 	public Parcheggio(int id, String name, int freeParkingSlots, List<Parcheggiatore> valets) {
 		
+		// Info
 		this.id = id;
 		this.name = name;
 		
@@ -82,6 +82,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		for (Parcheggiatore v : valets)
 			this.valets.add(v);
 		
+		// Tickets
 		this.ticketAutomobileMap = new HashMap<>();
 		this.ticketParkingSlotMap = new HashMap<>();
 		
@@ -399,7 +400,13 @@ public class Parcheggio extends Observable implements Callable<Void> {
 				
 				if (freeTimeSlots >= timeSlots) {
 					
-					freeParkingSlots.put(freeParkingSlot.getKey(), freeTimeSlots - timeSlots);
+					int timeSlotsLeft = freeTimeSlots - timeSlots;
+					
+					if (timeSlotsLeft == 0)
+						assert freeParkingSlotsSemaphore.tryAcquire() == true;
+					
+					freeParkingSlots.put(freeParkingSlot.getKey(), timeSlotsLeft);
+					
 					ticket = new Ticket(timeSlots);
 				}
 			}

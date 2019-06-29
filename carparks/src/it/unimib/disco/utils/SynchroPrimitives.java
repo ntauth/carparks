@@ -1,11 +1,11 @@
 package it.unimib.disco.utils;
 
+/**
+ * @brief Synchronization Primitives
+ *
+ */
 public class SynchroPrimitives {
 
-	/**
-	 * @brief Test and Set
-	 * 
-	 */
 	public static Boolean testAndSet(Boolean bool) {
 		
 		Boolean prev = bool;
@@ -15,4 +15,5 @@ public class SynchroPrimitives {
 		
 		return prev;
 	}
+	
 }

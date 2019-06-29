@@ -3,7 +3,7 @@ package it.unimib.disco.utils;
 import java.util.Random;
 
 /**
- * Poisson process random number generation
+ * @brief Random variate generation for a Poisson distribution
  * 
  * Adapted from @see https://github.com/edrdo/PoissonProcess
  *
@@ -58,11 +58,14 @@ public final class PoissonProcess {
 		double p = Math.exp(-lambda * time);
 		double s = p;
 		double u = rng.nextDouble();
+		
 		while (u > s) {
+			
 			n = n + 1;
 			p = p * lambda / n;
 			s = s + p;
-		}    
+		}
+		
 		return n;
 	}
 

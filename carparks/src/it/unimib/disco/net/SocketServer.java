@@ -16,6 +16,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import it.unimib.disco.domain.Parcheggio.Snapshot;
@@ -29,6 +30,8 @@ import it.unimib.disco.net.serialization.JsonSerializationPolicy;
 
 public class SocketServer implements Callable<Void> {
 	
+	private static final Logger _logger;
+	
 	protected ISerializationPolicy policy;
 	protected ExecutorService executor;
 	protected ServerSocket serverSocket;
@@ -38,6 +41,10 @@ public class SocketServer implements Callable<Void> {
 	protected Map<Integer, Snapshot> snapshots;
 	protected Map<Integer, Socket> parcheggioSocketMap;
 	protected Map<String, Socket> pendingRequests;
+	
+	static {
+		_logger = Logger.getLogger(SocketServer.class.getName());
+	}
 	
 	public SocketServer(int port) throws IOException {
 		
@@ -74,7 +81,7 @@ public class SocketServer implements Callable<Void> {
 	 * @param client The client to handle
 	 */
 	protected void handleClient(Socket client) {
-		//Per la lettura e scrittura client/server
+		
 		PrintWriter out = null;
 		Scanner in = null;
 		String lineIn;
@@ -84,7 +91,8 @@ public class SocketServer implements Callable<Void> {
 			out = new PrintWriter(client.getOutputStream());
 			in = new Scanner(client.getInputStream());
 			
-			/* Ricevo un messaggio con dentro una richiesta,
+			/* 
+			 * Ricevo un messaggio con dentro una richiesta,
 			 * lo deserializzo, lo elaboro, ed alla fine
 			 * invio la risposta.
 			 */
@@ -93,6 +101,9 @@ public class SocketServer implements Callable<Void> {
 				NetMessage message = 
 						(NetMessage) policy.deserialize(lineIn.getBytes(), 
 														NetMessage.class);
+				
+				assert message instanceof NetMessage;
+				
 				if (message instanceof ClientNetMessage)
 					processClientMessage((ClientNetMessage) message, out, client);
 				else if (message instanceof ParcheggioNetMessage)
@@ -103,8 +114,7 @@ public class SocketServer implements Callable<Void> {
 			// Problema con il client, termina la connessione e basta.
 			// Chiudere gli stream
 			if (!(e instanceof NoSuchElementException))
-				e.printStackTrace();
-			return;
+				_logger.severe(e.getLocalizedMessage());
 		}
 		finally {
 			
@@ -112,27 +122,27 @@ public class SocketServer implements Callable<Void> {
 				
 				out.close();
 				in.close();
-				client.close();
+				onClientClose(client);
 			}
 			catch (IOException e) {
-				e.printStackTrace();
+				
+				_logger.severe(e.getLocalizedMessage());
 				// Eccezione da non gestire.
 			}
-			
-			onClientClose(client);
 		}	
 	}
+	
 	/**
 	 * @param request Client request.
 	 * @return Response of the processed request.
 	 */
-	private void processClientMessage(ClientNetMessage request, PrintWriter out, Socket client) throws Exception
-	{
+	private void processClientMessage(ClientNetMessage request, PrintWriter out, Socket client) throws Exception {
+		
 		ClientNetMessage response = null;
 		NetMessageType messageType = request.getType();
 		
-		switch (messageType)
-		{
+		switch (messageType) {
+		
 			case GET_AVAILABLE_SNAPSHOTS:
 				List<Snapshot> freeParking = snapshots.values().stream()
 												.filter(s -> s.getFreeParkingSlots() > 0)
@@ -140,27 +150,30 @@ public class SocketServer implements Callable<Void> {
 				response = new ClientNetMessage(NetMessageType.GET_AVAILABLE_SNAPSHOTS, 
 												freeParking);
 				break;
+				
 			case RESERVE_TIME_SLOT:
 				reserveTimeSlot(request.getSelectedSnapshot(), request.getSlot(), client);
+				
 			default:
 				break;
 		}
-		if(response != null)
-		{
+		
+		if (response != null) {
+			
 			String jsonString = new String(policy.serialize(response));
 			out.println(jsonString);
 			out.flush();
 		}
 	}
 	
-	private void processParcheggioMessage(ParcheggioNetMessage message, Socket client) throws Exception
-	{
+	private void processParcheggioMessage(ParcheggioNetMessage message, Socket client) throws Exception {
+		
 		ClientNetMessage response = null;
 		NetMessageType messageType = message.getType();
 		PrintWriter out = null;
 		
-		switch (messageType)
-		{
+		switch (messageType) {
+		
 			case SNAPSHOT_UPDATE:
 				System.out.println("Received a snapshot from " + message.getParking().getParcheggioName());
 				Snapshot messageSnapshot = message.getParking();
@@ -170,6 +183,7 @@ public class SocketServer implements Callable<Void> {
 				out.println(new String(this.policy.serialize(ParcheggioNetMessage.EMPTY)));
 				out.flush();
 				break;
+				
 			case RESERVE_TIME_SLOT:
 				Socket requestingClient = this.pendingRequests.get(message.getTracer());
 				out = new PrintWriter(requestingClient.getOutputStream());
@@ -177,20 +191,23 @@ public class SocketServer implements Callable<Void> {
 				out.println(new String(this.policy.serialize(response)));
 				out.flush();
 				break;
+				
 			default:
 				break;
 		}
 	}
 	
-	private void reserveTimeSlot(Snapshot toReserve, int timeSlot, Socket client) throws Exception
-	{
+	private void reserveTimeSlot(Snapshot toReserve, int timeSlot, Socket client) throws Exception {
+		
 		ParcheggioNetMessage booking = new ParcheggioNetMessage(NetMessageType.RESERVE_TIME_SLOT, 
 																toReserve,
 																timeSlot);
 		Socket toBookParking = parcheggioSocketMap.get(toReserve.getParcheggioId());
 		PrintWriter pw = new PrintWriter(toBookParking.getOutputStream(), true);
-		String toSend =  new String(this.policy.serialize(booking));
+		String toSend = new String(this.policy.serialize(booking));
+		
 		pw.println(toSend);
+		
 		this.pendingRequests.put(booking.getTracer(), client);
 	}
 	
@@ -198,8 +215,11 @@ public class SocketServer implements Callable<Void> {
 	 * @brief Disposes of the client being closed
 	 * 
 	 * @param client The client being closed
+	 * @throws IOException 
 	 */
-	protected void onClientClose(Socket client) {
+	protected void onClientClose(Socket client) throws IOException {
+		
+		client.close();
 		
 		clientSocketsLock.lock();
 		

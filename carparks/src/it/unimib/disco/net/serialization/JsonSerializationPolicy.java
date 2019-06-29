@@ -4,6 +4,10 @@ import java.io.IOException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/**
+ * @brief JSON Serialization Policy (based on Jackson)
+ *
+ */
 public class JsonSerializationPolicy implements ISerializationPolicy {
 
 	protected final ObjectMapper objectMapper;

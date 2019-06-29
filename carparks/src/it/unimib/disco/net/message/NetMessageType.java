@@ -1,13 +1,13 @@
 package it.unimib.disco.net.message;
 
-public enum NetMessageType {
-	
+public enum NetMessageType
+{	
 	NONE,
 	
-	// @see Parcheggio Messages
+	// @see Parcheggio Message Types
 	SNAPSHOT_UPDATE,
 	
-	// @see Automobilista Messages
+	// @see Automobilista Message Types
 	GET_AVAILABLE_SNAPSHOTS, 
 	RESERVE_TIME_SLOT
 }

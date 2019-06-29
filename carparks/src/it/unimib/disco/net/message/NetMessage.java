@@ -13,70 +13,64 @@ import it.unimib.disco.domain.Ticket;
 
     @JsonSubTypes.Type(value = ClientNetMessage.class, name = "ClientNetMessage") }
 )
+/**
+ * This class represents the base structure of the messages exchanged
+ * between SocketClients and @see SocketServer
+ *
+ */
 public class NetMessage 
 {
 	protected NetMessageType type;
 	protected int slot;
 	protected Ticket ticket;
 	
-	public NetMessage()
-	{
-		//Per jackson
+	/**
+	 * @note Necessary for serialization/deserialization
+	 */
+	public NetMessage() {
+		
 	}
 	
-	public NetMessage(NetMessageType type)
-	{
+	public NetMessage(NetMessageType type) {
+		
 		this.type = type;
 	}
 	
-	public NetMessage(NetMessageType type, int slot)
-	{
+	public NetMessage(NetMessageType type, int slot) {
+		
 		this.slot = slot;
 		this.type = type;
 	}
 	
-	public NetMessage(NetMessageType type, Ticket ticket, int slot)
-	{
+	public NetMessage(NetMessageType type, Ticket ticket, int slot) {
+		
 		this.ticket = ticket;
 		this.slot = slot;
 		this.type = type;
 	}
 	
-	public NetMessageType getType()
-	{
+	public NetMessageType getType() {
 		return this.type;
 	}
 	
-	public void setType(NetMessageType type)
-	{
+	public void setType(NetMessageType type) {
 		this.type = type;
 	}
 
-	/**
-	 * @return the ticket
-	 */
 	public Ticket getTicket() {
 		return ticket;
 	}
 
-	/**
-	 * @param ticket the ticket to set
-	 */
 	public void setTicket(Ticket ticket) {
 		this.ticket = ticket;
 	}
 
-	/**
-	 * @return the slot
-	 */
 	public int getSlot() {
 		return slot;
 	}
 
-	/**
-	 * @param slot the slot to set
-	 */
 	public void setSlot(int slot) {
 		this.slot = slot;
 	}
+	
 }
