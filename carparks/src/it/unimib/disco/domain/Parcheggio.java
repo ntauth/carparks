@@ -402,8 +402,11 @@ public class Parcheggio extends Observable implements Callable<Void> {
 					
 					int timeSlotsLeft = freeTimeSlots - timeSlots;
 					
-					if (timeSlotsLeft == 0)
-						freeParkingSlotsSemaphore.tryAcquire();
+					if (timeSlotsLeft == 0) {
+						
+						boolean acquired = freeParkingSlotsSemaphore.tryAcquire();
+						assert acquired == true;
+					}
 					
 					freeParkingSlots.put(freeParkingSlot.getKey(), timeSlotsLeft);
 					
