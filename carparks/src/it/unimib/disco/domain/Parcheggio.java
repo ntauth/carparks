@@ -413,6 +413,8 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		}
 		//endregion
 		
+		onParcheggioUpdate();
+		
 		return ticket;
 	}
 	
