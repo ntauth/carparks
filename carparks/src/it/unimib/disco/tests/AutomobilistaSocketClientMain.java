@@ -121,8 +121,8 @@ public class AutomobilistaSocketClientMain implements Runnable{
 								System.out.printf("[%d] %s\n", i+1, slots[i]);
 							
 							int slot = getInput("",
-											String.format("Please enter values between %d and %d.\n", 1, slots.length+1),
-											1, slots.length+1);
+											String.format("Please enter values between %d and %d.\n", 1, slots.length),
+											1, slots.length);
 							
 							System.out.printf("Sending request to %s, from %s to %s\n", 
 											snapshots.get(parking).getParcheggioName(),
