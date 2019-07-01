@@ -1,6 +1,8 @@
 package it.unimib.disco.domain;
 
 import java.io.IOException;
+import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -10,7 +12,9 @@ import java.util.Observable;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -20,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import it.unimib.disco.net.ParcheggioSocketClient;
 import it.unimib.disco.net.message.ParcheggioNetMessage;
 import it.unimib.disco.net.serialization.JsonSerializationPolicy;
+import it.unimib.disco.utils.ListUtils;
 
 public class Parcheggio extends Observable implements Callable<Void> {
 	
@@ -28,13 +33,13 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected static final long PARKSLOT_SEMAPHORE_ACQUIRE_TIMEOUT = 500L;
 	protected static final long VALETS_SEMAPHORE_ACQUIRE_TIMEOUT = 500L;
 	
-	protected static final int PARKING_SLOT_OCCUPIED_INDEFINITELY = -1;
+	protected static final int PARKING_SLOT_OCCUPIED_INDEFINITELY = Integer.MAX_VALUE;
 	
 	protected int id;
 	protected String name;
 
 	protected int reservationTimeSlotCount;
-	protected Map<Integer, Integer> freeParkingSlots;
+	protected Map<Integer, List<Boolean>> parkingSlotTimeSlotsMap;
 	protected Semaphore freeParkingSlotsSemaphore;
 	protected long freeParkingSlotsSemaphoreAcquireTimeout;
 	
@@ -64,11 +69,18 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		this.name = name;
 		
 		// Parking slots
-		this.freeParkingSlots = new HashMap<>();
+		this.parkingSlotTimeSlotsMap = new ConcurrentHashMap<>();
 		this.reservationTimeSlotCount = RESERVATION_TIME_SLOT_COUNT;
-		
-		for (int i = 1; i <= freeParkingSlots; i++)
-			this.freeParkingSlots.put(i, this.reservationTimeSlotCount);
+			
+		for (int i = 1; i <= freeParkingSlots; i++) {
+			
+			List<Boolean> freeTimeSlots = new ArrayList<>();
+			
+			for (int j = 1; j <= this.reservationTimeSlotCount; j++)
+				freeTimeSlots.add(true);
+			
+			this.parkingSlotTimeSlotsMap.put(i, freeTimeSlots);
+		}
 		
 		this.freeParkingSlotsSemaphore = new Semaphore(freeParkingSlots, true);
 		this.freeParkingSlotsSemaphoreAcquireTimeout = PARKSLOT_SEMAPHORE_ACQUIRE_TIMEOUT;
@@ -83,8 +95,8 @@ public class Parcheggio extends Observable implements Callable<Void> {
 			this.valets.add(v);
 		
 		// Tickets
-		this.ticketAutomobileMap = new HashMap<>();
-		this.ticketParkingSlotMap = new HashMap<>();
+		this.ticketAutomobileMap = new ConcurrentHashMap<>();
+		this.ticketParkingSlotMap = new ConcurrentHashMap<>();
 		
 		// Requests
 		this.requestsMonitor = new Object();
@@ -107,7 +119,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		switch (msg.getType()) {
 				
 			case RESERVE_TIME_SLOT:		
-				msg.setTicket(onReserve(msg.getSlot()));
+//				msg.setTicket(onReserve(msg.getSlot())); @todo Fix
 				
 				platformSocket.writeObject(msg);
 				
@@ -234,23 +246,33 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		if (slotAcquired) {
 			
 			// Find the first free parking slot
-			int freeParkingSlot;
+			int freeParkingSlot = -1;
 			
 			//region Interlocked
-			synchronized (freeParkingSlots) {
+			synchronized (parkingSlotTimeSlotsMap) {
 				
-				Optional<Integer> firstFreeParkingSlot = freeParkingSlots.entrySet().stream()
-																.filter(x -> x.getValue() > 0)
-																.map(x -> x.getKey())
-																.findFirst();
-				assert firstFreeParkingSlot.isPresent();
+				Optional<Integer> firstFreeParkingSlot =
+						parkingSlotTimeSlotsMap.entrySet().stream()
+												.filter(x -> ListUtils.getTrueBitsCount(x.getValue())
+																== this.reservationTimeSlotCount)
+												.map(x -> x.getKey())
+												.findFirst();
 				
-				freeParkingSlot = firstFreeParkingSlot.get();
-				freeParkingSlots.put(freeParkingSlot, PARKING_SLOT_OCCUPIED_INDEFINITELY);
+				if (firstFreeParkingSlot.isPresent()) {
+	
+					freeParkingSlot = firstFreeParkingSlot.get();
+					parkingSlotTimeSlotsMap.put(freeParkingSlot, ListUtils.bitwiseNot(
+								ListUtils.makeAdjacencyBitmask(this.reservationTimeSlotCount,
+																0,
+																this.reservationTimeSlotCount - 1)));
+				}
 			}
 			//endregion
 			
-			onRitiraAcquireValetAndFulfill(request, freeParkingSlot);
+			if (freeParkingSlot != -1)
+				onRitiraAcquireValetAndFulfill(request, freeParkingSlot);
+			else
+				request.fulfill(null);
 		}
 	}
 	
@@ -324,15 +346,22 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	 * @brief Handles a @see RestituzioneRequest pulled from the originating message mailbox
 	 * 
 	 * @throws InterruptedException
+	 * @throws IllegalArgumentException
 	 */
-	protected void onRestituisci(RestituzioneRequest request) throws InterruptedException {
+	protected void onRestituisci(RestituzioneRequest request) throws InterruptedException, IllegalArgumentException {
 		
+		Ticket ticket = request.getPayload();
+		
+		if (ticketParkingSlotMap.containsKey(ticket)) {
+			
+			request.fulfill(null);
+			throw new IllegalArgumentException("Ticket isn't present");
+		}
+			
 		boolean valetAcquired = valetsSemaphore.tryAcquire(valetsSemaphoreAcquireTimeout, TimeUnit.MICROSECONDS);
 		
+		//region Interlocked
 		if (valetAcquired) {
-			
-			//region Interlocked
-			Ticket ticket = request.getPayload();
 			
 			boolean handleAcquired = request.handle();
 			
@@ -347,15 +376,33 @@ public class Parcheggio extends Observable implements Callable<Void> {
 					request.fulfill(automobile);
 					
 					// Free the parking slot
-					int reservedTimeSlots = ticket.getReservedTimeSlots();
 					int parkingSlot = ticketParkingSlotMap.get(ticket);
-					int timeSlotsFreeAfter = reservedTimeSlots > 0 ? reservedTimeSlots + freeParkingSlots.get(parkingSlot) : this.reservationTimeSlotCount;
 					
-					assert freeParkingSlots.containsKey(parkingSlot);
+					int timeSlotStart = ticket.getTimeSlotStart();
+					int timeSlotEnd = ticket.getTimeSlotEnd();
+					List<Boolean> timeSlotsFree = parkingSlotTimeSlotsMap.get(parkingSlot);
+					List<Boolean> timeSlotsFreeAfter;		
+				
+					if (ticket.getTimeSlotEnd() != PARKING_SLOT_OCCUPIED_INDEFINITELY) {	
+
+						timeSlotsFreeAfter = ListUtils.bitwiseExclusiveUnion(
+													ListUtils.makeAdjacencyBitmask(this.reservationTimeSlotCount,
+																					timeSlotStart - 1,
+																					timeSlotEnd - 1),
+													timeSlotsFree);
+					}
+					else {				
+						timeSlotsFreeAfter = ListUtils.makeAdjacencyBitmask(this.reservationTimeSlotCount,
+																			0,
+																			this.reservationTimeSlotCount - 1);
+					}
 					
 					//region Interlocked
-					synchronized (freeParkingSlots) {		
-						freeParkingSlots.put(parkingSlot, timeSlotsFreeAfter);
+					synchronized (parkingSlotTimeSlotsMap) {
+						
+						assert parkingSlotTimeSlotsMap.containsKey(parkingSlot);
+						
+						parkingSlotTimeSlotsMap.put(parkingSlot, timeSlotsFreeAfter);
 					}
 					//endregion
 
@@ -375,48 +422,90 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	}
 	
 	/**
-	 * @brief Reserves a specific quantity of time slots
+	 * @brief Computes a range indicating whether the selected time slot range
+	 * 		  is available or not
 	 * 
-	 * @param timeSlots to reserve
+	 * @param timeSlotsToReserve the time slot range to reserve
+	 * @param availableTimeSlots the time slots available for reservation
+	 * @return the availability range
+	 */
+	protected List<Boolean> getReservationAvailabilityRange(List<Boolean> timeSlotsToReserve,
+															List<Boolean> availableTimeSlots) {
+		
+		List<Boolean> availabilityRange =
+				ListUtils.bitwiseIntersect(timeSlotsToReserve, availableTimeSlots);
+		
+		return availabilityRange;
+	}
+	
+	/**
+	 * @return the parking slot mapped to @see Parcheggio#getAvailabilityRange
+	 */
+	protected Map.Entry<Integer, List<Boolean>> mapParkingSlotToAvailabilityRange(
+														Map.Entry<Integer, List<Boolean>> parkingSlotTimeSlotsEntry,
+														List<Boolean> timeSlotsToReserve) {
+		
+		AbstractMap.SimpleEntry<Integer, List<Boolean>> availabilityRange =
+				new AbstractMap.SimpleEntry<Integer, List<Boolean>>(parkingSlotTimeSlotsEntry.getKey(),
+																	getReservationAvailabilityRange(
+																			parkingSlotTimeSlotsEntry.getValue(),
+																			timeSlotsToReserve));
+		
+		return availabilityRange;
+	}
+	
+	/**
+	 * @brief Reserves a specific time slot range [timeSlotStart, timeSlotEnd]
+	 * 
+	 * @param timeSlotStart the starting time slot
+	 * @param timeSlotEnd the ending time slot
 	 * @return an entry/exit ticket if timeSlots have been reserved, null otherwise
 	 */
-	protected Ticket onReserve(int timeSlots) {
+	protected Ticket onReserve(int timeSlotStart, int timeSlotEnd) {
 		
 		Ticket ticket = null;
 		
-		//region Interlocked
-		synchronized (freeParkingSlots) {
+		boolean timeSlotsAreOk = timeSlotStart > 0 && timeSlotStart < timeSlotEnd
+												&& timeSlotEnd <= this.reservationTimeSlotCount;
+		
+		if (timeSlotsAreOk) {
 			
-			Optional<Map.Entry<Integer, Integer>> firstFreeParkingSlot = freeParkingSlots.entrySet().stream()
-															.filter(x -> x.getValue() > 0)
-															.sorted(Comparator.comparing(Map.Entry::getValue))
-															.findFirst();
+			int timeSlotsRequested = timeSlotStart - timeSlotEnd;
+			List<Boolean> timeSlotsToReserve = ListUtils.makeAdjacencyBitmask(
+														this.reservationTimeSlotCount,
+														timeSlotStart - 1, timeSlotEnd - 1);
 			
-			if (firstFreeParkingSlot.isPresent()) {
+			//region Interlocked
+			synchronized (parkingSlotTimeSlotsMap) {
 				
-				Map.Entry<Integer, Integer> freeParkingSlot = firstFreeParkingSlot.get();
+				List<Map.Entry<Integer, List<Boolean>>> parkingSlotCandidates =
+						parkingSlotTimeSlotsMap.entrySet().stream()
+										.map(x -> mapParkingSlotToAvailabilityRange(x, timeSlotsToReserve))
+										.filter(y -> ListUtils.getTrueBitsCount(y.getValue()) == timeSlotsRequested)
+										.collect(Collectors.toList());
 				
-				int freeTimeSlots = freeParkingSlot.getValue();
-				
-				if (freeTimeSlots >= timeSlots) {
+				for (Map.Entry<Integer, List<Boolean>> candidate : parkingSlotCandidates) {
 					
-					int timeSlotsLeft = freeTimeSlots - timeSlots;
-					
+					List<Boolean> timeSlots = this.parkingSlotTimeSlotsMap.get(candidate.getKey());
+					int freeTimeSlots = ListUtils.getTrueBitsCount(timeSlots);
+					int timeSlotsLeft = freeTimeSlots - timeSlotsRequested;
+						
 					if (timeSlotsLeft == 0) {
 						
 						boolean acquired = freeParkingSlotsSemaphore.tryAcquire();
 						assert acquired == true;
 					}
 					
-					freeParkingSlots.put(freeParkingSlot.getKey(), timeSlotsLeft);
+					parkingSlotTimeSlotsMap.put(candidate.getKey(), ListUtils.bitwiseExclusiveUnion(timeSlots,
+																									timeSlotsToReserve));
 					
-					ticket = new Ticket(timeSlots);
+					ticket = new Ticket(timeSlotStart, timeSlotEnd);
 				}
 			}
+			//endregion
+			
+			onParcheggioUpdate();
 		}
-		//endregion
-		
-		onParcheggioUpdate();
 		
 		return ticket;
 	}
