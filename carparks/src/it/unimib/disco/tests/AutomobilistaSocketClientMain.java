@@ -160,26 +160,41 @@ public class AutomobilistaSocketClientMain implements Runnable {
 						if (parking != snapshots.size()) {
 							
 							Object[] slots = getAvailableSlots();
-							System.out.printf("Enter slot from %s to: \n", slots[slots.length-1]);
 							
+							//Prints the available starting time
 							for (int i = 0; i < slots.length; i++)
 								System.out.printf("[%d] %s\n", i+1, slots[i]);
 							
-							int slot = getInput("",
+							int timeSlotStart = getInput("Select the starting time.\n",
 											String.format("Please enter values between %d and %d.\n", 1, slots.length),
 											1, slots.length);
 							
+							//Prints the available finishing time
+							for (int i = timeSlotStart; i < slots.length; i++)
+								System.out.printf("[%d] %s\n", i+1, slots[i]);
+							
+							//The min value is 3 because there must be a minimum timeslot difference
+							//between the start and the end.
+							int timeSlotEnd = getInput("Select the ending time.\n",
+									String.format("Please enter values between %d and %d.\n", timeSlotStart+1, slots.length),
+									timeSlotStart+1, slots.length);
+							
 							System.out.printf("Sending request to %s, from %s to %s\n", 
 											snapshots.get(parking).getParcheggioName(),
-											slots[slots.length-1],
-											slots[slot-1]);
+											slots[timeSlotStart-1],
+											slots[timeSlotEnd-1]);
 							
 							Ticket ticket = client.reserveTimeSlot(snapshots.get(parking), timeSlotStart, timeSlotEnd);
 							
 							if (ticket == null)
-								System.out.println("Time slots for this parking is not available!");
+								System.out.printf("Reservation from %s to %s is not available anymore!\n",
+												  //slots[timeSlotStart],
+												  //slots[timeSlotEnd]);
+												  timeSlotStart,
+												  timeSlotEnd);
 							else
-								System.out.println("Reservation successfull! Ticket: " + ticket.getUuid());
+								System.out.printf("Reservation successfull! Ticket: %s\n",
+													ticket.getUuid());
 						}
 					}
 					else {
@@ -238,20 +253,19 @@ public class AutomobilistaSocketClientMain implements Runnable {
 				hours++;
 				minutes = 0;
 			}
-			
 			s.add(String.format("%02d:%02d", hours, minutes));
 		}
 		
-		s.remove(s.size()-1);
+		//s.remove(s.size()-1);
 		
-		Calendar rightNow = Calendar.getInstance();
-		int total = rightNow.get(Calendar.HOUR_OF_DAY)*2;
-		int minutes = rightNow.get(Calendar.MINUTE);
+		//Calendar rightNow = Calendar.getInstance();
+		//int total = rightNow.get(Calendar.HOUR_OF_DAY)*2;
+		//int minutes = rightNow.get(Calendar.MINUTE);
 		
-		if (minutes >= 30)
-			total++;
+		//if (minutes >= 30)
+		//	total++;
 		
-		rotate(s, 47 - total);
+		//rotate(s, 47 - total);
 		
 		return s.toArray();
 	}
