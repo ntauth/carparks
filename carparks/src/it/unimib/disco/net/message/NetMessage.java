@@ -21,7 +21,8 @@ import it.unimib.disco.domain.Ticket;
 public class NetMessage 
 {
 	protected NetMessageType type;
-	protected int slot;
+	protected int timeSlotStart;
+	protected int timeSlotEnd;
 	protected Ticket ticket;
 	
 	/**
@@ -32,21 +33,19 @@ public class NetMessage
 	}
 	
 	public NetMessage(NetMessageType type) {
-		
-		this.type = type;
+		this(type, 0, Integer.MAX_VALUE);
 	}
 	
-	public NetMessage(NetMessageType type, int slot) {
-		
-		this.slot = slot;
-		this.type = type;
+	public NetMessage(NetMessageType type, int timeSlotStart, int timeSlotEnd) {
+		this(type, null, timeSlotStart, timeSlotEnd);
 	}
 	
-	public NetMessage(NetMessageType type, Ticket ticket, int slot) {
+	public NetMessage(NetMessageType type, Ticket ticket, int timeSlotStart, int timeSlotEnd) {
 		
+		this.type = type;
 		this.ticket = ticket;
-		this.slot = slot;
-		this.type = type;
+		this.timeSlotStart = timeSlotStart;
+		this.timeSlotEnd = timeSlotEnd;
 	}
 	
 	public NetMessageType getType() {
@@ -65,12 +64,20 @@ public class NetMessage
 		this.ticket = ticket;
 	}
 
-	public int getSlot() {
-		return slot;
+	public int getTimeSlotStart() {
+		return timeSlotStart;
 	}
 
-	public void setSlot(int slot) {
-		this.slot = slot;
+	public void setTimeSlotStart(int timeSlotStart) {
+		this.timeSlotStart = timeSlotStart;
+	}
+
+	public int getTimeSlotEnd() {
+		return timeSlotEnd;
+	}
+
+	public void setTimeSlotEnd(int timeSlotEnd) {
+		this.timeSlotEnd = timeSlotEnd;
 	}
 	
 }

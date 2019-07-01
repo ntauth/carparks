@@ -29,15 +29,15 @@ public class ParcheggioNetMessage extends NetMessage {
 		this.tracer = UUID.randomUUID().toString();
 	}
 	
-	public ParcheggioNetMessage(NetMessageType type, Ticket ticket, int timeSlot) {
+	public ParcheggioNetMessage(NetMessageType type, Ticket ticket, int timeSlotStart, int timeSlotEnd) {
 		
-		super(type, ticket, timeSlot);
+		super(type, ticket, timeSlotStart, timeSlotEnd);
 		this.tracer = UUID.randomUUID().toString();
 	}
 	
-	public ParcheggioNetMessage(NetMessageType type, Snapshot parking, int timeSlot) {
+	public ParcheggioNetMessage(NetMessageType type, Snapshot parking, int timeSlotStart, int timeSlotEnd) {
 		
-		super(type, timeSlot);
+		super(type, timeSlotStart, timeSlotEnd);
 		this.parking = parking;
 		this.tracer = UUID.randomUUID().toString();
 	}

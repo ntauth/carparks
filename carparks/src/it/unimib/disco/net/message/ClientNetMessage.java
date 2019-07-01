@@ -23,32 +23,35 @@ public class ClientNetMessage extends NetMessage {
 		super(type);
 	}
 
-	public ClientNetMessage(NetMessageType type, Snapshot toBook, int slot) {
+	public ClientNetMessage(NetMessageType type, Snapshot toBook, int timeSlotStart, int timeSlotEnd) {
 		
-		super(type, slot);
-		selectedSnapshot = toBook;
+		super(type, timeSlotStart, timeSlotEnd);
+		this.selectedSnapshot = toBook;
 	}
 	
-	public ClientNetMessage(NetMessageType type, Ticket ticket, int slot) {
-		super(type, ticket, slot);
+	public ClientNetMessage(NetMessageType type, Ticket ticket, int timeSlotStart, int timeSlotEnd) {
+		super(type, ticket, timeSlotStart, timeSlotEnd);
 	}
 	
-	public ClientNetMessage(NetMessageType type, Ticket ticket, int slot, Snapshot selectedSnapshot) {
+	public ClientNetMessage(
+			NetMessageType type,
+			Ticket ticket,
+			int timeSlotStart,
+			int timeSlotEnd,
+			Snapshot selectedSnapshot) {
 		
-		super(type, ticket, slot);
+		super(type, ticket, timeSlotStart, timeSlotEnd);
 		this.selectedSnapshot = selectedSnapshot;
 	}
 	
-	public ClientNetMessage(NetMessageType type, List<Snapshot> snapshots, int slot) {
+	public ClientNetMessage(NetMessageType type, List<Snapshot> snapshots, int timeSlotStart, int timeSlotEnd) {
 		
-		super(type, slot);
+		super(type, timeSlotStart, timeSlotEnd);
 		this.snapshots = snapshots;
 	}
 	
 	public ClientNetMessage(NetMessageType type, List<Snapshot> snapshots) {
-		
-		super(type);
-		this.snapshots = snapshots;
+		this(type, snapshots, 0, Integer.MAX_VALUE);
 	}
 
 	@Override
@@ -60,16 +63,9 @@ public class ClientNetMessage extends NetMessage {
 		return snapshots;
 	}
 
-	public int getSlot() {
-		return slot;
-	}
 
 	public void setSnapshots(List<Snapshot> snapshots) {
 		this.snapshots = snapshots;
-	}
-
-	public void setSlot(int slot) {
-		this.slot = slot;
 	}
 
 	public Snapshot getSelectedSnapshot() {

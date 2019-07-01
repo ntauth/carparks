@@ -66,13 +66,18 @@ public class AutomobilistaSocketClient extends SocketClientBase {
 		return response.getSnapshots();
 	}
 	
-	public Ticket reserveTimeSlot(Parcheggio.Snapshot snapshot, int timeSlot) throws IOException, ClassNotFoundException {
+	public Ticket reserveTimeSlot(
+			Parcheggio.Snapshot snapshot,
+			int timeSlotStart,
+			int timeSlotEnd) throws IOException, ClassNotFoundException {
 		
 		ClientNetMessage toSend = new ClientNetMessage(NetMessageType.RESERVE_TIME_SLOT,
-				snapshot,
-				timeSlot);
+														snapshot,
+														timeSlotStart,
+														timeSlotEnd);
 		writeObject(toSend);
-		ClientNetMessage response = (ClientNetMessage) readObject(ClientNetMessage.class);		
+		ClientNetMessage response = (ClientNetMessage) readObject(ClientNetMessage.class);
+		
 		return response.getTicket();
 	}
 	

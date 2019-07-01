@@ -152,7 +152,10 @@ public class SocketServer implements Callable<Void> {
 				break;
 				
 			case RESERVE_TIME_SLOT:
-				reserveTimeSlot(request.getSelectedSnapshot(), request.getSlot(), client);
+				reserveTimeSlot(request.getSelectedSnapshot(),
+								request.getTimeSlotStart(),
+								request.getTimeSlotEnd(),
+								client);
 				
 			default:
 				break;
@@ -187,7 +190,10 @@ public class SocketServer implements Callable<Void> {
 			case RESERVE_TIME_SLOT:
 				Socket requestingClient = this.pendingRequests.get(message.getTracer());
 				out = new PrintWriter(requestingClient.getOutputStream());
-				response = new ClientNetMessage(message.getType(), message.getTicket(), message.getSlot());
+				response = new ClientNetMessage(message.getType(),
+												message.getTicket(),
+												message.getTimeSlotStart(),
+												message.getTimeSlotEnd());
 				out.println(new String(this.policy.serialize(response)));
 				out.flush();
 				break;
@@ -197,11 +203,16 @@ public class SocketServer implements Callable<Void> {
 		}
 	}
 	
-	private void reserveTimeSlot(Snapshot toReserve, int timeSlot, Socket client) throws Exception {
+	private void reserveTimeSlot(
+			Snapshot toReserve,
+			int timeSlotStart,
+			int timeSlotEnd,
+			Socket client) throws Exception {
 		
 		ParcheggioNetMessage booking = new ParcheggioNetMessage(NetMessageType.RESERVE_TIME_SLOT, 
 																toReserve,
-																timeSlot);
+																timeSlotStart,
+																timeSlotEnd);
 		Socket toBookParking = parcheggioSocketMap.get(toReserve.getParcheggioId());
 		PrintWriter pw = new PrintWriter(toBookParking.getOutputStream(), true);
 		String toSend = new String(this.policy.serialize(booking));

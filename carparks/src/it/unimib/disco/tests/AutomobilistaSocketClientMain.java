@@ -174,7 +174,7 @@ public class AutomobilistaSocketClientMain implements Runnable {
 											slots[slots.length-1],
 											slots[slot-1]);
 							
-							Ticket ticket = client.reserveTimeSlot(snapshots.get(parking), slot);
+							Ticket ticket = client.reserveTimeSlot(snapshots.get(parking), timeSlotStart, timeSlotEnd);
 							
 							if (ticket == null)
 								System.out.println("Time slots for this parking is not available!");

@@ -3,8 +3,6 @@ package it.unimib.disco.domain;
 import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -119,7 +117,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		switch (msg.getType()) {
 				
 			case RESERVE_TIME_SLOT:		
-//				msg.setTicket(onReserve(msg.getSlot())); @todo Fix
+//				msg.setTicket(onReserve(msg.getTimeSlotStart(), msg.getTimeSlotEnd()));
 				
 				platformSocket.writeObject(msg);
 				
@@ -198,7 +196,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected void requestWatchdog() throws InterruptedException {
 		
 		while (true) {		
-			
+				
 			//region Interlocked
 			synchronized (requestsMonitor) {
 				
@@ -242,7 +240,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 	protected void onRitira(RitiroRequest request) throws InterruptedException {
 		
 		boolean slotAcquired = freeParkingSlotsSemaphore.tryAcquire(freeParkingSlotsSemaphoreAcquireTimeout, TimeUnit.MICROSECONDS);
-
+		
 		if (slotAcquired) {
 			
 			// Find the first free parking slot
@@ -352,12 +350,12 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		
 		Ticket ticket = request.getPayload();
 		
-		if (ticketParkingSlotMap.containsKey(ticket)) {
+		if (!ticketParkingSlotMap.containsKey(ticket)) {
 			
 			request.fulfill(null);
 			throw new IllegalArgumentException("Ticket isn't present");
 		}
-			
+		
 		boolean valetAcquired = valetsSemaphore.tryAcquire(valetsSemaphoreAcquireTimeout, TimeUnit.MICROSECONDS);
 		
 		//region Interlocked
