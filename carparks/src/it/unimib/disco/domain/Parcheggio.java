@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Observable;
 import java.util.Optional;
 import java.util.Queue;
@@ -453,7 +454,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 																	getReservationAvailabilityRange(
 																			parkingSlotTimeSlotsEntry.getValue(),
 																			timeSlotsToReserve));
-		
+		System.out.println(availabilityRange.getKey() + ", " + availabilityRange.getValue());
 		return availabilityRange;
 	}
 	
@@ -468,16 +469,19 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		
 		Ticket ticket = null;
 		
+		for (Entry<Integer, List<Boolean>> e : this.parkingSlotTimeSlotsMap.entrySet())
+			System.out.println("Entry: " + e.getKey() + ", " + e.getValue());
+		
 		boolean timeSlotsAreOk = timeSlotStart > 0 && timeSlotStart < timeSlotEnd
 												&& timeSlotEnd <= this.reservationTimeSlotCount;
 		
 		if (timeSlotsAreOk) {
 			
-			int timeSlotsRequested = timeSlotStart - timeSlotEnd;
+			int timeSlotsRequested = timeSlotEnd+1 - timeSlotStart;
 			List<Boolean> timeSlotsToReserve = ListUtils.makeAdjacencyBitmask(
 														this.reservationTimeSlotCount,
 														timeSlotStart - 1, timeSlotEnd - 1);
-			
+			System.out.println("timeSlotsRequested: " + timeSlotsRequested);
 			//region Interlocked
 			synchronized (parkingSlotTimeSlotsMap) {
 				

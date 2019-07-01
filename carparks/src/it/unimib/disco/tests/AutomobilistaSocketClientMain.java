@@ -256,7 +256,7 @@ public class AutomobilistaSocketClientMain implements Runnable {
 			s.add(String.format("%02d:%02d", hours, minutes));
 		}
 		
-		//s.remove(s.size()-1);
+		s.remove(s.size()-1);
 		
 		//Calendar rightNow = Calendar.getInstance();
 		//int total = rightNow.get(Calendar.HOUR_OF_DAY)*2;
@@ -268,23 +268,6 @@ public class AutomobilistaSocketClientMain implements Runnable {
 		//rotate(s, 47 - total);
 		
 		return s.toArray();
-	}
-	
-	private <T> ArrayList<T> rotate(ArrayList<T> aL, int shift) {
-		
-	    if (aL.size() == 0)
-	        return aL;
-
-	    T element = null;
-	    
-	    for(int i = 0; i < shift; i++) {
-	    	
-	        // remove last element, add it to front of the ArrayList
-	        element = aL.remove( aL.size() - 1 );
-	        aL.add(0, element);
-	    }
-
-	    return aL;
 	}
 	
 }
