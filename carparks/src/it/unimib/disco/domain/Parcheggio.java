@@ -120,8 +120,6 @@ public class Parcheggio extends Observable implements Callable<Void> {
 			case RESERVE_TIME_SLOT:		
 			
 				msg.setTicket(onReserve(msg.getTimeSlotStart(), msg.getTimeSlotEnd()));
-				
-				
 				platformSocket.writeObject(msg);
 				
 				break;

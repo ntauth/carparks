@@ -113,8 +113,9 @@ public class AutomobilistaSocketClientMain implements Runnable {
 				try {
 					
 					List<Snapshot> snapshots = new ArrayList<Snapshot>();
+					List<Snapshot> receivedSnapshots = client.getParcheggioSnapshots();
 					
-					for (Snapshot s : client.getParcheggioSnapshots())
+					for (Snapshot s : receivedSnapshots)
 						if (s.getFreeParkingSlots() > 0)
 							snapshots.add(s);
 					
@@ -138,8 +139,9 @@ public class AutomobilistaSocketClientMain implements Runnable {
 					System.out.println();
 					
 					List<Snapshot> snapshots = new ArrayList<Snapshot>();
+					List<Snapshot> receivedSnapshots = client.getParcheggioSnapshots();
 					
-					for (Snapshot s : client.getParcheggioSnapshots())
+					for (Snapshot s : receivedSnapshots)
 						if (s.getFreeParkingSlots() > 0)
 							snapshots.add(s);
 					

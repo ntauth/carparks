@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -54,7 +55,7 @@ public class SocketServer implements Callable<Void> {
 		clientSockets = new ArrayList<>();
 		clientSocketsLock = new ReentrantLock();
 		abortListenLoop = new AtomicBoolean(false);
-		snapshots = new HashMap<Integer, Snapshot>();
+		snapshots = new ConcurrentHashMap<Integer, Snapshot>();
 		parcheggioSocketMap = new HashMap<Integer, Socket>();
 		pendingRequests = new HashMap<String, Socket>();
 	}
@@ -143,6 +144,7 @@ public class SocketServer implements Callable<Void> {
 		switch (messageType) {
 		
 			case GET_AVAILABLE_SNAPSHOTS:
+				
 				List<Snapshot> freeParking = snapshots.values().stream()
 												.filter(s -> s.getFreeParkingSlots() > 0)
 												.collect(Collectors.toList());
