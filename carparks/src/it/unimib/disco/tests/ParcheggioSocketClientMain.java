@@ -50,7 +50,7 @@ public class ParcheggioSocketClientMain implements Runnable {
 			for (int j = 0; j < DEFAULT_NO_OF_VALETS; j++)
 				valets.add(new Parcheggiatore());
 			
-			parcheggi.add(new Parcheggio(i, DEFAULT_PARCHEGGI_NAMES[i], 1, valets));
+			parcheggi.add(new Parcheggio(i, DEFAULT_PARCHEGGI_NAMES[i], 5, valets));
 		}
 	}
 	

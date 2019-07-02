@@ -164,7 +164,7 @@ public class AutomobilistaSocketClientMain implements Runnable {
 							Object[] slots = getAvailableSlots();
 							
 							//Prints the available starting time
-							for (int i = 0; i < slots.length; i++)
+							for (int i = 0; i < slots.length-1; i++)
 								System.out.printf("[%d] %s\n", i+1, slots[i]);
 							
 							int timeSlotStart = getInput("Select the starting time.\n",
