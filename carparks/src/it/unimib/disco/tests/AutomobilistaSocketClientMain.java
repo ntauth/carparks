@@ -190,8 +190,8 @@ public class AutomobilistaSocketClientMain implements Runnable {
 							
 							if (ticket == null)
 								System.out.printf("Reservation from %s to %s is not available anymore!\n",
-												  slots[timeSlotStart],
-												  slots[timeSlotEnd]);
+												  slots[timeSlotStart-1],
+												  slots[timeSlotEnd-1]);
 							else
 								System.out.printf("Reservation successfull! Ticket: %s\n",
 													ticket.getUuid());
