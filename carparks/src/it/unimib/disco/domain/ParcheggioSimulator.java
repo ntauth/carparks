@@ -43,7 +43,11 @@ public final class ParcheggioSimulator implements Callable<Void> {
 		for (int i = 0; i < freeParcheggiatori; i++)
 			parcheggiatori.add(new Parcheggiatore());
 		
-		this.parcheggio = new Parcheggio(freeParkingSlots, parcheggiatori);
+				
+		int id = new Random().nextInt(1000);
+		String name = String.format("SimulatedParking#%d", id);
+		
+		this.parcheggio = new Parcheggio(id, name, freeParkingSlots, parcheggiatori);
 		this.executor = Executors.newCachedThreadPool();
 		
 		this.rng = new Random(Chrono.getCurrentTime());
