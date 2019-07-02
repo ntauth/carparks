@@ -498,6 +498,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 																									timeSlotsToReserve));
 					
 					ticket = new Ticket(timeSlotStart, timeSlotEnd);
+					break;
 				}
 			}
 			//endregion
