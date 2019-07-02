@@ -118,10 +118,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		switch (msg.getType()) {
 				
 			case RESERVE_TIME_SLOT:		
-				System.out.printf("Received request to book from %s to %s\n",
-								  msg.getTimeSlotStart(),
-								  msg.getTimeSlotEnd());
-				
+			
 				msg.setTicket(onReserve(msg.getTimeSlotStart(), msg.getTimeSlotEnd()));
 				
 				
@@ -454,7 +451,6 @@ public class Parcheggio extends Observable implements Callable<Void> {
 																	getReservationAvailabilityRange(
 																			parkingSlotTimeSlotsEntry.getValue(),
 																			timeSlotsToReserve));
-		System.out.println(availabilityRange.getKey() + ", " + availabilityRange.getValue());
 		return availabilityRange;
 	}
 	
@@ -469,9 +465,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 		
 		Ticket ticket = null;
 		
-		for (Entry<Integer, List<Boolean>> e : this.parkingSlotTimeSlotsMap.entrySet())
-			System.out.println("Entry: " + e.getKey() + ", " + e.getValue());
-		
+	
 		boolean timeSlotsAreOk = timeSlotStart > 0 && timeSlotStart < timeSlotEnd
 												&& timeSlotEnd <= this.reservationTimeSlotCount;
 		
@@ -481,7 +475,6 @@ public class Parcheggio extends Observable implements Callable<Void> {
 			List<Boolean> timeSlotsToReserve = ListUtils.makeAdjacencyBitmask(
 														this.reservationTimeSlotCount,
 														timeSlotStart - 1, timeSlotEnd - 1);
-			System.out.println("timeSlotsRequested: " + timeSlotsRequested);
 			//region Interlocked
 			synchronized (parkingSlotTimeSlotsMap) {
 				
@@ -490,9 +483,7 @@ public class Parcheggio extends Observable implements Callable<Void> {
 										.map(x -> mapParkingSlotToAvailabilityRange(x, timeSlotsToReserve))
 										.filter(y -> ListUtils.getTrueBitsCount(y.getValue()) == timeSlotsRequested)
 										.collect(Collectors.toList());
-				
-				System.out.printf("Found %d potential candidates!\n", parkingSlotCandidates.size());
-				
+								
 				for (Map.Entry<Integer, List<Boolean>> candidate : parkingSlotCandidates) {
 					
 					List<Boolean> timeSlots = this.parkingSlotTimeSlotsMap.get(candidate.getKey());
@@ -509,7 +500,6 @@ public class Parcheggio extends Observable implements Callable<Void> {
 																									timeSlotsToReserve));
 					
 					ticket = new Ticket(timeSlotStart, timeSlotEnd);
-					System.out.println("created ticket!");
 				}
 			}
 			//endregion

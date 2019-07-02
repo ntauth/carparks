@@ -127,7 +127,6 @@ public class SocketServer implements Callable<Void> {
 			catch (IOException e) {
 				
 				_logger.severe(e.getLocalizedMessage());
-				// Eccezione da non gestire.
 			}
 		}	
 	}
@@ -178,7 +177,7 @@ public class SocketServer implements Callable<Void> {
 		switch (messageType) {
 		
 			case SNAPSHOT_UPDATE:
-				System.out.println("Received a snapshot from " + message.getParking().getParcheggioName());
+				//System.out.println("Received a snapshot from " + message.getParking().getParcheggioName());
 				Snapshot messageSnapshot = message.getParking();
 				this.snapshots.put(messageSnapshot.getParcheggioId(), messageSnapshot);
 				this.parcheggioSocketMap.put(messageSnapshot.getParcheggioId(), client);
